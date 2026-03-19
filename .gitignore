@@ -1,0 +1,55 @@
+# ── Python ──────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.pth
+
+# ── Virtual environments ─────────────────────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ── IDE / editors ────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── OS ───────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+
+# ── MEA raw data files (never upload — can be several GB) ────────────────────────
+*.bxr
+*.h5
+*.hdf5
+*.raw.h5
+
+# ── CASCADE output folders ───────────────────────────────────────────────────────
+mea_out/
+ltpltd_out/
+*_out/
+
+# ── Local development only ───────────────────────────────────────────────────────
+LOCAL_ONLY/
+.claude/

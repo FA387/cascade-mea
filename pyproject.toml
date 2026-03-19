@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cascade-mea"
+version = "0.8.0"
+description = "CASCADE — Criticality Avalanche Spike Cross-platform Analysis Detection Engine: a Multi-Manufacturer MEA Analysis Pipeline"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+
+authors = [
+    { name = "Forbes Avila" },
+    { name = "Hyun-Su Lee" },
+    { name = "Sun-Hyun Park" },
+]
+
+keywords = [
+    "MEA",
+    "multi-electrode array",
+    "electrophysiology",
+    "neuroscience",
+    "neuronal avalanches",
+    "criticality",
+    "branching ratio",
+    "deviation from criticality coefficient",
+    "shape collapse error",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib",
+    "h5py",
+    "seaborn",
+]
+
+[project.urls]
+Homepage      = "https://github.com/FA387/cascade-mea"
+Repository    = "https://github.com/FA387/cascade-mea"
+"Bug Tracker" = "https://github.com/FA387/cascade-mea/issues"
+
+[project.scripts]
+cascade        = "cascade.run_analysis:_run_with_log"
+cascade-info   = "cascade.scanner:main"
+cascade-ltpltd = "cascade.ltpltd:main"
+
+[tool.setuptools.packages.find]
+include = ["cascade*"]

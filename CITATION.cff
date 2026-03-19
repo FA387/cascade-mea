@@ -1,0 +1,71 @@
+cff-version: 1.2.0
+message: "If you use CASCADE in your research, please cite it as below."
+title: "CASCADE: Criticality Avalanche Spike Cross-platform Analysis Detection Engine, a Multi-Manufacturer MEA Bash Analysis Pipeline"
+version: 0.8.0
+date-released: 2026-04-21
+license: Apache-2.0
+repository-code: "https://github.com/FA387/cascade-mea"
+
+authors:
+  - family-names: Avila
+    given-names: Forbes
+    affiliation: >-
+      Center for Alternatives to Animal Testing, Korea Institute of Toxicology,
+      Yuseong, Daejeon 34114, Republic of Korea;
+      Human and Environmental Toxicology, University of Science and Technology (UST),
+      Yuseong, Daejeon 34113, Republic of Korea
+
+  - family-names: Kim
+    given-names: Jin
+    affiliation: >-
+      Department of Physiology, College of Medicine, Soonchunhyang University,
+      Cheonan 31151, Republic of Korea;
+      Institute for Molecular Metabolism Innovation, Soonchunhyang University,
+      Asan 31538, Republic of Korea
+
+  - family-names: Park
+    given-names: Jong-Chan
+    affiliation: >-
+      Department of Biophysics, Institute of Quantum Biophysics, Sungkyunkwan University,
+      Suwon 16419, Republic of Korea;
+      Department of MetaBioHealth, Sungkyunkwan University, Suwon 16419, Republic of Korea;
+      Department of Biopharmaceutical Convergence, Sungkyunkwan University,
+      Suwon 16419, Republic of Korea
+
+  - family-names: Lee
+    given-names: Hyun-Su
+    affiliation: >-
+      Department of Physiology, School of Medicine, Pusan National University,
+      Yangsan-si 50612, Republic of Korea;
+      Research Institute for Convergence of Biomedical Science and Technology,
+      Pusan National University Yangsan Hospital, Yangsan-si 50612, Republic of Korea;
+      Medical Research Institute, School of Medicine, Pusan National University,
+      Yangsan-si 50612, Republic of Korea
+
+  - family-names: Park
+    given-names: Sun-Hyun
+    affiliation: >-
+      Center for Alternatives to Animal Testing, Korea Institute of Toxicology,
+      Yuseong, Daejeon 34114, Republic of Korea;
+      Human and Environmental Toxicology, University of Science and Technology (UST),
+      Yuseong, Daejeon 34113, Republic of Korea
+
+abstract: >
+  CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA)
+  recordings from multiple manufacturers (3Brain, Maxwell Biosystems, Multi Channel
+  Systems, Cortical Labs CL1, Axion BioSystems). It computes neuronal avalanches,
+  criticality metrics (tau, alpha, DCC, branching ratio, shape collapse), functional
+  connectivity, network bursts, and spatial entropy, producing publication-ready
+  figures and machine-readable outputs.
+
+keywords:
+  - MEA
+  - multi-electrode array
+  - neuronal avalanches
+  - criticality
+  - electrophysiology
+  - neuroscience
+  - branching ratio
+  - deviation from criticality coefficient
+  - shape collapse error
+  - Python
