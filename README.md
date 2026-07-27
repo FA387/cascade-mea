@@ -2,6 +2,8 @@
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
+<img width="1536" height="1500" alt="CASCADE_Logo" src="https://github.com/user-attachments/assets/7a029bf6-93b7-4185-8859-888672b4bb65" />
+
 CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA) recordings from multiple manufacturers. It reads manufacturer-specific spike files, converts them into a common internal format, and runs a standardised sequence of analyses: firing-rate characterisation, network burst detection, neuronal avalanche segmentation, criticality metrics, functional connectivity, and spatial entropy. All figures are saved as PNG (300 dpi) and all numerical results as TSV files. The pipeline is designed to produce reproducible results suitable for peer-reviewed publication.
 
 ---
