@@ -128,6 +128,9 @@ class AxionLoader(BaseLoader):
 
         t_arr    = t_num[spike_idx].to_numpy(dtype=np.float64)
         elec_arr = df.loc[spike_idx, elec_col].to_numpy(dtype=str)
+        # amplitudes: abs value, mV → µV
+        amp_arr  = (np.abs(pd.to_numeric(df[amp_col], errors="coerce")[spike_idx]
+                           .to_numpy(dtype=np.float64)) * 1000.0)
 
         if t_arr.size == 0:
             raise ValueError(f"No spike rows found in {path}.")
@@ -145,6 +148,7 @@ class AxionLoader(BaseLoader):
                 )
             t_arr    = t_arr[keep]
             elec_arr = elec_arr[keep]
+            amp_arr  = amp_arr[keep]
 
         # ── determine full recording duration before windowing ────────────────────
         full_dur = float(t_arr.max()) if t_arr.size > 0 else 0.0
@@ -156,6 +160,7 @@ class AxionLoader(BaseLoader):
         win_mask = (t_arr >= start_s) & (t_arr < end_s)
         t_win    = t_arr[win_mask] - start_s   # times relative to window start
         elec_win = elec_arr[win_mask]
+        amp_win  = amp_arr[win_mask]
 
         # ── build spike dict ──────────────────────────────────────────────────────
         # channel_ids = every electrode seen in the full (possibly well-filtered)
@@ -163,9 +168,12 @@ class AxionLoader(BaseLoader):
         all_electrodes = sorted(np.unique(elec_arr).tolist())
 
         spike_dict: dict = {}
+        amp_dict:   dict = {}
         for elec in np.unique(elec_win):
-            mask = elec_win == elec
-            spike_dict[elec] = np.sort(t_win[mask]).astype(np.float64)
+            m          = elec_win == elec
+            sort_order = np.argsort(t_win[m])
+            spike_dict[elec] = t_win[m][sort_order].astype(np.float64)
+            amp_dict[elec]   = amp_win[m][sort_order].astype(np.float32)
 
         metadata = {
             "manufacturer"   : self.manufacturer_name(),
@@ -179,10 +187,11 @@ class AxionLoader(BaseLoader):
         }
 
         return MEARecording(
-            sampling_rate = sr,
-            n_channels    = len(all_electrodes),
-            channel_ids   = all_electrodes,
-            spike_times   = spike_dict,
-            duration      = float(duration_s),
-            metadata      = metadata,
+            sampling_rate    = sr,
+            n_channels       = len(all_electrodes),
+            channel_ids      = all_electrodes,
+            spike_times      = spike_dict,
+            duration         = float(duration_s),
+            metadata         = metadata,
+            spike_amplitudes = amp_dict if amp_dict else None,
         )

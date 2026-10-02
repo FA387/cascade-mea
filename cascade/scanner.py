@@ -367,7 +367,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.8.0")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.2")
 
     ap.add_argument("--manufacturer",
                     required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion"],

@@ -64,7 +64,7 @@ def per_electrode_mean(rates_csv: str) -> pd.DataFrame:
     -------
     DataFrame with columns: ch_idx, mean_rate_hz
     """
-    # Read TSV format (CASCADE v0.8.0 outputs TSV, not CSV)
+    # Read TSV format (CASCADE v0.9.2 outputs TSV, not CSV)
     df = pd.read_csv(rates_csv, sep='\t')
     required = {"ch_idx", "rate_hz"}
     if not required.issubset(df.columns):
@@ -222,7 +222,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.8.0")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.2")
 
     ap.add_argument("--baseline",
                     required=True,

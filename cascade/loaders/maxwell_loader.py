@@ -141,10 +141,17 @@ class MaxwellLoader(BaseLoader):
 
             spike_times_s = frames_to_seconds(frames_rel, sr)
 
-            # build per-channel dict
+            # build per-channel dicts
             spike_dict = {}
+            amp_dict   = {}
+            has_amps   = "amplitude" in sp.dtype.fields
+            if has_amps:
+                amps_sel = np.abs(sp["amplitude"].astype(np.float32))[mask]
             for ch in np.unique(channels_sel):
-                spike_dict[int(ch)] = spike_times_s[channels_sel == ch].astype(np.float64)
+                ch_mask = channels_sel == ch
+                spike_dict[int(ch)] = spike_times_s[ch_mask].astype(np.float64)
+                if has_amps:
+                    amp_dict[int(ch)] = amps_sel[ch_mask]
 
             # active channel list from mapping table (if present)
             map_path = f"data_store/{stream}/settings/mapping"
@@ -168,10 +175,11 @@ class MaxwellLoader(BaseLoader):
                     metadata[key] = float(np.array(h5[p]).flat[0])
 
         return MEARecording(
-            sampling_rate = sr,
-            n_channels    = max(channel_ids) + 1 if channel_ids else 0,
-            channel_ids   = sorted(channel_ids),
-            spike_times   = spike_dict,
-            duration      = float(duration_s),
-            metadata      = metadata,
+            sampling_rate    = sr,
+            n_channels       = max(channel_ids) + 1 if channel_ids else 0,
+            channel_ids      = sorted(channel_ids),
+            spike_times      = spike_dict,
+            duration         = float(duration_s),
+            metadata         = metadata,
+            spike_amplitudes = amp_dict if amp_dict else None,
         )

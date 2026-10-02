@@ -17,8 +17,10 @@ HDF5 structure (MCS HDF5 Protocol v3)
         ChannelID             – int32, 0-based channel index
         Label                 – bytes, electrode name (e.g. b'47')
         Tick                  – int64, µs per sample  (e.g. 50 → 20 000 Hz)
-        ConversionFactor      – int64, for voltage conversion (not needed here)
-        Exponent              – int32, for voltage conversion (not needed here)
+        Unit                  – bytes, physical unit of ChannelData (normally b'V')
+        ConversionFactor      – int64, ADC → Unit scale factor
+        Exponent              – int32, power-of-ten applied with ConversionFactor
+                                value_in_Unit = raw_adc * ConversionFactor * 10**Exponent
 
 /Data/Recording_<R>/SegmentStream/Stream_0/
     InfoSegment               – structured array (one row per segment/channel):
@@ -130,8 +132,31 @@ class MCSLoader(BaseLoader):
                 for r in info_ch
             }
 
-            # ── spike timestamps (from SegmentStream) ─────────────────────────
+            # ── ADC → µV scale per channel ────────────────────────────────────
+            # MCS stores waveform cutouts as raw ADC integers. The physical value
+            # is  raw * ConversionFactor * 10**Exponent  in `Unit` (always 'V' for
+            # analog streams), so µV needs a further 1e6. Peak-to-peak is a
+            # difference, so the ADZero offset cancels and is not needed.
+            # If a file lacks these fields we return no amplitudes at all rather
+            # than raw ADC counts, so --max_amplitude cannot silently compare a
+            # µV threshold against ADC units.
+            fields    = info_ch.dtype.names or ()
+            amps_ok   = {"ConversionFactor", "Exponent"}.issubset(fields)
+            scale_map = {}
+            if amps_ok:
+                for r in info_ch:
+                    unit = (r["Unit"].decode("ascii", "replace").strip()
+                            if "Unit" in fields else "V")
+                    if unit != "V":
+                        amps_ok = False
+                        break
+                    scale_map[int(r["ChannelID"])] = (
+                        float(r["ConversionFactor"]) * (10.0 ** int(r["Exponent"])) * 1e6
+                    )
+
+            # ── spike timestamps + waveforms (from SegmentStream) ────────────
             spike_dict: dict = {}
+            amp_dict:   dict = {}
 
             if s_path in h5:
                 seg = h5[s_path]
@@ -155,10 +180,20 @@ class MCSLoader(BaseLoader):
                     # timestamps: shape (1, n_spikes) in µs absolute
                     ts_us = seg[ts_key][0].astype(np.int64)   # squeeze row dim
 
+                    # waveform cutouts: shape (n_waveform_samples, n_spikes)
+                    waveforms = seg[seg_key][:]
+                    ptp = (waveforms.max(axis=0)
+                           - waveforms.min(axis=0)).astype(np.float64)
+                    if amps_ok:
+                        # 0.0 for an unmapped channel: fail open (never filtered)
+                        # rather than risk discarding a channel on a bogus scale.
+                        ptp *= scale_map.get(src_ch, 0.0)   # ADC → µV
+
                     # make relative to t0, apply time window
-                    ts_rel = ts_us - t0_us
-                    mask   = (ts_rel >= s_us) & (ts_rel < e_us)
-                    ts_win = ts_rel[mask]
+                    ts_rel  = ts_us - t0_us
+                    mask    = (ts_rel >= s_us) & (ts_rel < e_us)
+                    ts_win  = ts_rel[mask]
+                    ptp_win = ptp[mask]
 
                     if ts_win.size == 0:
                         continue
@@ -167,11 +202,18 @@ class MCSLoader(BaseLoader):
                     spike_times_s = (ts_win - s_us) / 1e6
 
                     if src_ch in spike_dict:
-                        spike_dict[src_ch] = np.sort(
-                            np.concatenate([spike_dict[src_ch], spike_times_s])
-                        ).astype(np.float64)
+                        # sort the merged times AND carry the amplitudes through
+                        # the same permutation, so spike i still pairs with
+                        # amplitude i after two segments are combined.
+                        merged_t = np.concatenate([spike_dict[src_ch], spike_times_s])
+                        merged_a = np.concatenate([amp_dict[src_ch], ptp_win])
+                        order    = np.argsort(merged_t, kind="stable")
+                        spike_dict[src_ch] = merged_t[order].astype(np.float64)
+                        amp_dict[src_ch]   = merged_a[order].astype(np.float32)
                     else:
-                        spike_dict[src_ch] = spike_times_s.astype(np.float64)
+                        order = np.argsort(spike_times_s, kind="stable")
+                        spike_dict[src_ch] = spike_times_s[order].astype(np.float64)
+                        amp_dict[src_ch]   = ptp_win[order].astype(np.float32)
 
             metadata = {
                 "manufacturer" : self.manufacturer_name(),
@@ -179,13 +221,15 @@ class MCSLoader(BaseLoader):
                 "recording"    : recording,
                 "start_s"      : start_s,
                 "label_map"    : label_map,
+                "amplitude_unit": "uV" if amps_ok else None,
             }
 
         return MEARecording(
-            sampling_rate = sr,
-            n_channels    = n_ch,
-            channel_ids   = channel_ids,
-            spike_times   = spike_dict,
-            duration      = float(duration_s),
-            metadata      = metadata,
+            sampling_rate    = sr,
+            n_channels       = n_ch,
+            channel_ids      = channel_ids,
+            spike_times      = spike_dict,
+            duration         = float(duration_s),
+            metadata         = metadata,
+            spike_amplitudes = amp_dict if (amp_dict and amps_ok) else None,
         )

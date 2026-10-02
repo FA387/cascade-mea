@@ -81,9 +81,10 @@ class BrainwaveLoader(BaseLoader):
                          else np.unique(spike_ch))
 
             # apply time window
-            s_frame = int(round(start_s * sr))
-            e_frame = int(round((start_s + duration_s) * sr))
-            mask    = (spike_frames >= s_frame) & (spike_frames < e_frame)
+            s_frame      = int(round(start_s * sr))
+            e_frame      = int(round((start_s + duration_s) * sr))
+            mask         = (spike_frames >= s_frame) & (spike_frames < e_frame)
+            orig_indices = np.where(mask)[0]
 
             spike_frames = spike_frames[mask]
             spike_ch     = spike_ch[mask]
@@ -91,10 +92,27 @@ class BrainwaveLoader(BaseLoader):
             # convert to seconds relative to window start
             spike_times_s = frames_to_seconds(spike_frames - s_frame, sr)
 
-            # build per-channel dict
+            # build per-channel dicts
             spike_dict = {}
             for ch in np.unique(spike_ch):
                 spike_dict[int(ch)] = spike_times_s[spike_ch == ch].astype(np.float64)
+
+            # per-spike PTP amplitudes from SpikeForms (optional)
+            amp_dict   = None
+            forms_path = f"{well}/SpikeForms"
+            if forms_path in h5 and orig_indices.size > 0:
+                wl = int(h5[forms_path].attrs.get("Wavelength", 0))
+                if wl > 0:
+                    forms_all = h5[forms_path][:]
+                    n_total   = forms_all.size // wl
+                    if orig_indices[-1] < n_total:
+                        forms_2d = forms_all[:n_total * wl].reshape(n_total, wl)
+                        ptp_all  = forms_2d.max(axis=1) - forms_2d.min(axis=1)
+                        ptp_sel  = ptp_all[orig_indices].astype(np.float32)
+                        amp_dict = {}
+                        for ch in np.unique(spike_ch):
+                            ch_mask = spike_ch == ch
+                            amp_dict[int(ch)] = ptp_sel[ch_mask]
 
             # metadata
             metadata = {
@@ -109,12 +127,13 @@ class BrainwaveLoader(BaseLoader):
                     metadata[attr_key] = h5.attrs[attr_key]
 
         return MEARecording(
-            sampling_rate = sr,
-            n_channels    = int(max(stored_ch)) + 1 if len(stored_ch) > 0 else 0,
-            channel_ids   = [int(c) for c in sorted(stored_ch)],
-            spike_times   = spike_dict,
-            duration      = float(duration_s),
-            metadata      = metadata,
+            sampling_rate    = sr,
+            n_channels       = int(max(stored_ch)) + 1 if len(stored_ch) > 0 else 0,
+            channel_ids      = [int(c) for c in sorted(stored_ch)],
+            spike_times      = spike_dict,
+            duration         = float(duration_s),
+            metadata         = metadata,
+            spike_amplitudes = amp_dict,
         )
 
     # ── optional: load mean waveforms ─────────────────────────────────────────

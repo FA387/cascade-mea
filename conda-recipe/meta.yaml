@@ -1,0 +1,53 @@
+{% set version = "0.9.2" %}
+
+package:
+  name: cascade-mea
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/c/cascade-mea/cascade_mea-{{ version }}.tar.gz
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  entry_points:
+    - cascade = cascade.run_analysis:_run_with_log
+    - cascade-info = cascade.scanner:main
+    - cascade-ltpltd = cascade.ltpltd:main
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=61
+  run:
+    - python >=3.10
+    - numpy
+    - scipy
+    - pandas
+    - matplotlib
+    - h5py
+    - seaborn
+
+test:
+  commands:
+    - cascade --test
+
+about:
+  home: https://github.com/FA387/cascade-mea
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: "CASCADE — Criticality Avalanche Spike Cross-platform Analysis Detection Engine: a Multi-Manufacturer MEA Analysis Pipeline"
+  description: |
+    CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA)
+    recordings from multiple manufacturers. It reads manufacturer-specific spike files,
+    converts them into a common internal format, and runs a standardised sequence of
+    analyses including firing-rate characterisation, network burst detection, neuronal
+    avalanche segmentation, criticality metrics, functional connectivity, and spatial entropy.
+  doc_url: https://github.com/FA387/cascade-mea
+  dev_url: https://github.com/FA387/cascade-mea
+
+extra:
+  recipe-maintainers:
+    - fa387

@@ -77,17 +77,19 @@ from cascade.loaders.maxwell_loader   import MaxwellLoader
 from cascade.loaders.cl1_loader       import CL1Loader
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
-from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, bin_spikes, compute_isi_metrics
+from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics
 from cascade.core.bursts        import compute_burst_metrics, compute_active_area
 from cascade.core.avalanche     import infer_dt, compute_avalanches, counts_per_dt
 from cascade.core.criticality   import compute_exponents, compute_branching_ratio, shape_collapse
 from cascade.core.connectivity  import compute_connectivity, summarize_connectivity
 from cascade.core.entropy       import compute_entropy
+from cascade.core.synchrony     import compute_synchrony, synchrony_to_dataframe
 from cascade.core.plots         import (plot_raster, plot_rate_heatmap, plot_population_rate,
                                         plot_burst_timeline, plot_active_area_curve,
                                         plot_waveforms, plot_corr_heatmap, plot_degree_histogram,
                                         plot_avalanche_distributions, plot_loglog_linearization,
-                                        plot_shape_collapse, plot_entropy_curve, plot_epoch_compare)
+                                        plot_shape_collapse, plot_entropy_curve, plot_epoch_compare,
+                                        plot_cross_correlogram)
 from cascade.utils.common       import say, banner, step, CYAN, GRN, YEL, RED
 from cascade.utils.io           import write_csv, write_tsv, write_criticality_report, write_run_log, _Tee
 
@@ -183,7 +185,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.8.0")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.2")
     ap.add_argument("--test", action="store_true",
                     help="Run the built-in self-test with synthetic data. "
                          "No recording file required.")
@@ -249,6 +251,16 @@ def main():
                          "fire faster than ~500 Hz; a high violation rate indicates "
                          "electrical noise. Set to 0 to disable. "
                          "Recommended starting value: 1.0 (1%%). (default: 0 = off)")
+    spike_group.add_argument("--max_amplitude",
+                    type=float, default=0.0,
+                    help="Noisy-electrode filter: remove channels where any single "
+                         "spike has a peak-to-peak waveform amplitude exceeding this "
+                         "value (µV). Electrodes with abnormally large spikes are "
+                         "typically picking up mechanical artefacts or electrical "
+                         "interference rather than real action potentials. "
+                         "Set to 0 to disable. Recommended starting value: 200 (µV). "
+                         "Supported: CL1, 3Brain, Maxwell (if stored), MCS, Axion "
+                         "— all in µV. (default: 0 = off)")
     spike_group.add_argument("--bin",
                     type=float, default=1.0,
                     help="Bin size in seconds for computing per-channel firing "
@@ -292,6 +304,15 @@ def main():
                     type=int, default=4,
                     help="Upper limit for the xmin search in the avalanche "
                          "DURATION power-law fit. Recommended: 3–6. (default: 4)")
+    crit_group.add_argument("--legacy_powerlaw",
+                    action="store_true",
+                    help="Normalise the power-law MLE over only the observed "
+                         "avalanche values instead of every integer between the "
+                         "cut-offs. This reproduces CASCADE <= 0.9.0 and "
+                         "Habibollahi 2022 tplfit.py exactly, but the exponent is "
+                         "biased (severely below ~1000 avalanches). Use ONLY to "
+                         "reproduce previously published numbers, never for new "
+                         "analyses. (default: off = correct normalisation)")
     crit_group.add_argument("--pl_xmin_S",
                     type=float, default=None,
                     help="Manually override the xmin for the size power-law fit. "
@@ -345,6 +366,53 @@ def main():
                          "connectivity edge between two channels. Pairs with "
                          "|r| >= this value are connected. (default: 0.3)")
 
+    # ── synchrony ──────────────────────────────────────────────────────────────
+    sync_group = ap.add_argument_group("Synchrony")
+    sync_group.add_argument("--sync_metrics",
+                    choices=["none", "core", "xcorr", "kreuz", "index", "all"],
+                    default="core",
+                    help="Which synchrony metrics to compute. 'core' reports the two "
+                         "that resolve on every manufacturer and discriminate best "
+                         "between recordings: area under the normalised "
+                         "cross-correlation, and the Synchrony Index. 'xcorr' adds "
+                         "the raw area and both full-width-at-half-height values; "
+                         "'kreuz' = 1 - Kreuz SPIKE-distance; 'index' = Synchrony "
+                         "Index alone; 'all' = everything, mirroring the Axion "
+                         "Neural Metric Tool. Note 'kreuz' and 'index' are O(N^2) in "
+                         "channels and much slower than the correlogram. "
+                         "(default: core)")
+    sync_group.add_argument("--sync_window",
+                    type=float, default=20.0,
+                    help="Synchrony window in MILLISECONDS: the window around zero "
+                         "lag used to compute the area under the cross-correlation. "
+                         "A short window (5) emphasises synchrony on a millisecond "
+                         "timescale; a long window (100) captures slow timescales. "
+                         "(default: 20.0)")
+    sync_group.add_argument("--sync_bin",
+                    type=float, default=1.0,
+                    help="Cross-correlogram bin width in MILLISECONDS. This is an "
+                         "absolute duration and is deliberately NOT inferred from "
+                         "the sampling rate, so that synchrony values are "
+                         "comparable across manufacturers. (default: 1.0)")
+    sync_group.add_argument("--sync_max_lag",
+                    type=float, default=500.0,
+                    help="Maximum lag of the cross-correlogram in MILLISECONDS. "
+                         "Must be wide enough to contain the correlogram peak, or "
+                         "the full width at half height cannot be measured. "
+                         "(default: 500.0)")
+    sync_group.add_argument("--sync_sigma",
+                    type=float, default=None,
+                    help="Gaussian timescale sigma in MILLISECONDS for the "
+                         "Synchrony Index. Small relative to the mean ISI measures "
+                         "spike-timing coincidence; large approaches a firing-rate "
+                         "comparison. (default: same as --sync_window)")
+    sync_group.add_argument("--sync_max_channels",
+                    type=int, default=64,
+                    help="Cap on the number of channels used for the O(N^2) "
+                         "measures (--sync_metrics kreuz/index/all). Channels are "
+                         "subsampled with a fixed seed, and the output records that "
+                         "subsampling occurred. 0 = no cap. (default: 64)")
+
     # ── entropy and active area ────────────────────────────────────────────────
     ea_group = ap.add_argument_group("Entropy and Active Area")
     ea_group.add_argument("--entropy_win",
@@ -378,7 +446,7 @@ def main():
     jpg = args.jpg
     v   = args.verbose
 
-    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.8.0", enabled=v)
+    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.2", enabled=v)
 
     # ── find file ──────────────────────────────────────────────────────────────
     path = args.input
@@ -444,7 +512,29 @@ def main():
                 "[DATA]", CYAN, enabled=v)
         n_active = len(spike_times)
 
-    all_spikes = rec.all_spike_times() if (args.ae <= 0 and args.max_rate <= 0 and args.max_rpv <= 0) else \
+    # ── amplitude filter ───────────────────────────────────────────────────────
+    if args.max_amplitude > 0:
+        step("Amplitude filter", enabled=v)
+        if rec.spike_amplitudes is None:
+            say("--max_amplitude ignored: no amplitude data found in this file "
+                "(Maxwell requires the optional amplitude field; "
+                "3Brain requires SpikeForms).", "[WARN]", YEL, enabled=True)
+        else:
+            spike_times, n_removed, removed_ch = filter_amplitude_electrodes(
+                spike_times, rec.spike_amplitudes,
+                max_amplitude_uv=args.max_amplitude,
+            )
+            say(f"High-amplitude channels removed: {n_removed} "
+                f"(max_amplitude={args.max_amplitude} µV)",
+                "[DATA]", CYAN, enabled=v)
+            if n_removed > 0 and v:
+                say(f"Removed channel IDs: {removed_ch[:20]}"
+                    f"{'…' if len(removed_ch) > 20 else ''}",
+                    "[DATA]", CYAN, enabled=v)
+            n_active = len(spike_times)
+
+    all_spikes = rec.all_spike_times() if (args.ae <= 0 and args.max_rate <= 0
+                                           and args.max_rpv <= 0 and args.max_amplitude <= 0) else \
         np.sort(np.concatenate(list(spike_times.values()))) \
         if spike_times else np.array([])
 
@@ -520,7 +610,7 @@ def main():
 
     # ── connectivity ───────────────────────────────────────────────────────────
     step("Connectivity (Pearson correlation)", enabled=v)
-    if rate_df.shape[1] < 2:
+    if rate_df.empty or rate_df["ch_idx"].nunique() < 2:
         say("Skipped -- fewer than 2 active channels", "[WARN]", YEL, enabled=v)
         C, ch_ids = None, []
     else:
@@ -543,6 +633,52 @@ def main():
                               well_label, svg, jpg)
         say(f"Edges |r|>={args.conn_thr}: {csum['n_edges']}  "
             f"density={csum['edge_density']:.4f}", "[DATA]", CYAN, enabled=v)
+
+    # ── synchrony ──────────────────────────────────────────────────────────────
+    # Operates directly on spike times, so it is identical for every manufacturer.
+    # All timing parameters are absolute (ms), never sampling-rate derived, so the
+    # values are comparable across devices — see core/synchrony.py.
+    if args.sync_metrics != "none":
+        step(f"Synchrony ({args.sync_metrics})", enabled=v)
+        sync_cap = args.sync_max_channels if args.sync_max_channels > 0 else None
+        sync_m, sync_cc = compute_synchrony(
+            spike_times,
+            duration_s=rec.duration,
+            window_s=args.sync_window / 1000.0,
+            bin_s=args.sync_bin / 1000.0,
+            max_lag_s=args.sync_max_lag / 1000.0,
+            sigma_s=(args.sync_sigma / 1000.0) if args.sync_sigma else None,
+            metrics=args.sync_metrics,
+            max_channels=sync_cap,
+        )
+        write_tsv(synchrony_to_dataframe(sync_m),
+                  f"{args.output}/synchrony_{well_label}.tsv")
+        if sync_cc is not None:
+            plot_cross_correlogram(sync_cc,
+                                   f"{args.output}/crosscorrelogram_norm_{well_label}.png",
+                                   well_label, window_s=args.sync_window / 1000.0,
+                                   normalized=True, save_svg=svg, save_jpg=jpg)
+            plot_cross_correlogram(sync_cc,
+                                   f"{args.output}/crosscorrelogram_{well_label}.png",
+                                   well_label, window_s=args.sync_window / 1000.0,
+                                   normalized=False, save_svg=svg, save_jpg=jpg)
+            _msg = (f"Pooled correlogram: {sync_cc['n_pairs']} pairs  "
+                    f"area_norm={sync_m.get('area_xcorr_norm', float('nan')):.6g}")
+            if "fwhh_xcorr_norm" in sync_m:
+                _msg += f"  FWHH={sync_m['fwhh_xcorr_norm']*1000:.2f} ms"
+            say(_msg, "[DATA]", CYAN, enabled=v)
+            if sync_m.get("fwhh_resolution_limited"):
+                say(f"FWHH is not resolved at these settings: "
+                    f"{sync_m.get('fwhh_limit_reason','')}. The area metrics are "
+                    f"unaffected.", "[WARN]", YEL, enabled=True)
+        if "kreuz_metric" in sync_m:
+            say(f"Kreuz metric (1-SPIKE-distance): {sync_m['kreuz_metric']:.4f}"
+                f"{'  [channels subsampled]' if sync_m.get('kreuz_subsampled') else ''}",
+                "[DATA]", CYAN, enabled=v)
+        if "synchrony_index" in sync_m:
+            say(f"Synchrony Index: {sync_m['synchrony_index']:.4f}"
+                f"{'  [channels subsampled]' if sync_m.get('index_subsampled') else ''}",
+                "[DATA]", CYAN, enabled=v)
 
     # ── avalanches ─────────────────────────────────────────────────────────────
     step("Neuronal avalanches", enabled=v)
@@ -578,9 +714,14 @@ def main():
     sizes     = av_df["avalanche_size"].to_numpy() if not av_df.empty else np.array([])
     durations = av_df["duration_bins"].to_numpy()  if not av_df.empty else np.array([])
 
+    if args.legacy_powerlaw:
+        say("--legacy_powerlaw: using the biased pre-0.9.1 normalisation. "
+            "Valid only for reproducing previously published numbers.",
+            "[WARN]", YEL, enabled=True)
     exp_metrics = compute_exponents(sizes, durations,
                                     burst_min=args.burst_min,
-                                    t_min=args.t_min)
+                                    t_min=args.t_min,
+                                    legacy_normalization=args.legacy_powerlaw)
 
     # log–log plots with fitted lines
     # --pl_xmin_S/D override the auto-detected xmin for the visual fit line

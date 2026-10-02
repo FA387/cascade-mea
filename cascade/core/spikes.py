@@ -88,6 +88,41 @@ def filter_noisy_electrodes(spike_times: Dict[int, np.ndarray],
     return filtered, len(removed), removed
 
 
+# ── Amplitude filter ───────────────────────────────────────────────────────────
+def filter_amplitude_electrodes(spike_times: Dict[int, np.ndarray],
+                                 spike_amplitudes: Dict[int, np.ndarray],
+                                 max_amplitude_uv: float) -> tuple:
+    """
+    Remove channels whose maximum single-spike peak-to-peak amplitude exceeds
+    *max_amplitude_uv* µV.  Channels with any spike that large are likely
+    recording mechanical or electrical artefacts rather than real neurons.
+
+    Parameters
+    ----------
+    spike_times      : dict  {channel_id: array of spike times in seconds}
+    spike_amplitudes : dict  {channel_id: array of peak-to-peak amplitudes in µV}
+                             One value per spike, same order as spike_times.
+    max_amplitude_uv : float – threshold in µV. Channels where ANY spike exceeds
+                               this value are removed.  0 = off.
+                               Recommended starting value: 200 µV.
+
+    Returns
+    -------
+    filtered   : dict  – spike_times with offending channels removed
+    n_removed  : int   – number of channels discarded
+    removed_ch : list  – channel ids that were removed
+    """
+    if max_amplitude_uv <= 0 or not spike_amplitudes:
+        return spike_times, 0, []
+
+    removed = [
+        ch for ch, amps in spike_amplitudes.items()
+        if ch in spike_times and np.max(amps) > max_amplitude_uv
+    ]
+    filtered = {ch: st for ch, st in spike_times.items() if ch not in removed}
+    return filtered, len(removed), removed
+
+
 # ── Spike DataFrame ────────────────────────────────────────────────────────────
 def spikes_to_dataframe(spike_times: Dict[int, np.ndarray]) -> pd.DataFrame:
     """

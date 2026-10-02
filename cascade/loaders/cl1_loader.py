@@ -126,6 +126,7 @@ class CL1Loader(BaseLoader):
 
         timestamps = spikes["timestamp"].astype(np.int64)
         channels   = spikes["channel"].astype(np.int32)
+        waveforms  = spikes["samples"].astype(np.float32)  # shape (N, 75), µV
 
         # ── apply time window ─────────────────────────────────────────────────
         # timestamps are already in frames relative to recording start
@@ -135,20 +136,28 @@ class CL1Loader(BaseLoader):
 
         timestamps = timestamps[mask]
         channels   = channels[mask]
+        waveforms  = waveforms[mask]
 
         # convert to seconds relative to window start
         spike_times_s = frames_to_seconds(timestamps - s_frame, sr)
 
-        # ── build per-channel dict ────────────────────────────────────────────
+        # per-spike peak-to-peak amplitude (max - min across the 75 samples)
+        ptp = waveforms.max(axis=1) - waveforms.min(axis=1)
+
+        # ── build per-channel dicts ───────────────────────────────────────────
         spike_dict = {}
+        amp_dict   = {}
         for ch in np.unique(channels):
-            spike_dict[int(ch)] = spike_times_s[channels == ch].astype(np.float64)
+            ch_mask          = channels == ch
+            spike_dict[int(ch)] = spike_times_s[ch_mask].astype(np.float64)
+            amp_dict[int(ch)]   = ptp[ch_mask].astype(np.float32)
 
         return MEARecording(
-            sampling_rate = sr,
-            n_channels    = n_ch,
-            channel_ids   = list(range(n_ch)),
-            spike_times   = spike_dict,
-            duration      = float(duration_s),
-            metadata      = metadata,
+            sampling_rate    = sr,
+            n_channels       = n_ch,
+            channel_ids      = list(range(n_ch)),
+            spike_times      = spike_dict,
+            duration         = float(duration_s),
+            metadata         = metadata,
+            spike_amplitudes = amp_dict,
         )

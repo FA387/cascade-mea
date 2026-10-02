@@ -384,3 +384,40 @@ def plot_epoch_compare(stats: dict,
     fig.tight_layout()
     save_fig(fig, out, save_svg, save_jpg)
     plt.close(fig)
+
+
+# ── Synchrony ──────────────────────────────────────────────────────────────────
+def plot_cross_correlogram(cc: dict,
+                           out: str, label: str,
+                           window_s: float = 0.020,
+                           normalized: bool = True,
+                           save_svg: bool = False, save_jpg: bool = False):
+    """
+    Well-wide pooled inter-electrode cross-correlogram.
+
+    Follows the Axion Neural Metric Tool display: the correlogram with vertical
+    grey lines marking the synchrony window, and the shaded area whose integral is
+    the "area under cross-correlation" metric.
+
+    cc : dict from core.synchrony.pooled_cross_correlogram
+    """
+    fig, ax = plt.subplots(figsize=(8, 3.2))
+    if cc is not None:
+        lags_ms = cc["lags_s"] * 1000.0
+        y = cc["cc_norm"] if normalized else cc["cc"]
+        ax.plot(lags_ms, y, "-", lw=1.0, color="#1f77b4")
+        m = np.abs(cc["lags_s"]) <= window_s
+        ax.fill_between(lags_ms[m], 0, y[m], color="#1f77b4", alpha=0.25)
+        # synchrony-window guide lines, as Axion draws them
+        for xv in (-window_s * 1000.0, window_s * 1000.0):
+            ax.axvline(xv, color="grey", lw=0.9, ls="-")
+        ax.set_xlim(lags_ms.min(), lags_ms.max())
+    ax.set_xlabel("Phase lag (ms)")
+    ax.set_ylabel("Normalised correlation" if normalized else "Correlation")
+    kind = "normalised " if normalized else ""
+    n_pairs = cc["n_pairs"] if cc else 0
+    ax.set_title(f"Pooled {kind}cross-correlogram — {label} "
+                 f"({n_pairs} pairs, window ±{window_s*1000:.0f} ms)")
+    fig.tight_layout()
+    save_fig(fig, out, save_svg, save_jpg)
+    plt.close(fig)

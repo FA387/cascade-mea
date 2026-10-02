@@ -18,19 +18,36 @@ from .avalanche import avalanche_segments, counts_per_dt
 
 
 # ── Truncated power-law fit (Habibollahi 2022 method) ─────────────────────────
-def tplfit(data: np.ndarray, limit: int = 20):
+def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False):
     """
     Fit a truncated power-law by finding the xmin that minimises the
     Kolmogorov–Smirnov (KS) statistic between the empirical CDF and the
     fitted truncated power-law CDF.
 
-    This replicates the tplfit.py function from Habibollahi et al. (2022).
+    Normalisation
+    -------------
+    The discrete truncated power law is normalised over EVERY integer between
+    the cut-offs,
+
+        p(y) = y^-a / sum_{k=xmin}^{xmax} k^-a
+
+    which is the convention of Clauset et al. (2009) and of `plmle.py` in the
+    NCC toolbox (Marshall et al. 2016).
+
+    `legacy_normalization=True` sums only over the *observed unique* values,
+    reproducing `tplfit.py` / `tplfit.m` from Habibollahi et al. (2022) and
+    CASCADE <= 0.9.0. That convention makes the normalising constant depend on
+    which values happen to appear in the sample, which biases the exponent
+    (severely when avalanches are few) and leaves `A` inconsistent with the
+    full-range KS grid below. It exists only to reproduce previously published
+    numbers — do not use it for new analyses.
 
     Parameters
     ----------
     data  : 1-D array of positive integers (avalanche sizes or durations)
     limit : maximum xmin to try (search range: 1 … limit)
             Recommended: 8–20 for sizes, 3–6 for durations (Habibollahi 2022)
+    legacy_normalization : reproduce the biased pre-0.9.1 behaviour (see above)
 
     Returns
     -------
@@ -60,11 +77,14 @@ def tplfit(data: np.ndarray, limit: int = 20):
 
         subset = data[idx]
         n      = float(idx.size)
-        s      = np.unique(subset)           # unique values for normalisation
+        # Support of the truncated distribution: every integer in [x0, xmax].
+        # legacy_normalization restricts it to the observed values instead,
+        # which is what Habibollahi 2022 tplfit.py does — see the docstring.
+        s = (np.unique(subset) if legacy_normalization
+             else np.arange(x0, xmax + 1, dtype=np.float64))
 
         # MLE: minimise negative log-likelihood of truncated power law
         # L(a) = a·Σlog(xi) - n·log(1/Σ s_k^(-a))
-        # (Habibollahi 2022 tplfit.py, line 21)
         def neg_ll(a):
             a = float(a[0]) if hasattr(a, '__len__') else float(a)
             denom = np.sum(np.power(s, -a))
@@ -100,7 +120,8 @@ def tplfit(data: np.ndarray, limit: int = 20):
 def compute_exponents(sizes: np.ndarray,
                       durations: np.ndarray,
                       burst_min: int = 12,
-                      t_min: int = 4) -> dict:
+                      t_min: int = 4,
+                      legacy_normalization: bool = False) -> dict:
     """
     Fit power-law exponents for size (τ) and duration (α), then compute
     the predicted scaling exponent β_pred and DCC.
@@ -113,6 +134,8 @@ def compute_exponents(sizes: np.ndarray,
                 (Habibollahi 2022 default: 12; try 8–20)
     t_min     : upper limit for xmin search in duration distribution
                 (Habibollahi 2022 default: 4; try 3–6)
+    legacy_normalization : passed to tplfit(); reproduces the biased pre-0.9.1
+                exponents. See tplfit() for why you should not use it.
 
     Returns
     -------
@@ -125,12 +148,14 @@ def compute_exponents(sizes: np.ndarray,
         return result
 
     # τ – size exponent
-    tau, xmin_s, _, _ = tplfit(sizes, limit=burst_min)
+    tau, xmin_s, _, _ = tplfit(sizes, limit=burst_min,
+                               legacy_normalization=legacy_normalization)
     result["tau"]    = tau
     result["xmin_s"] = xmin_s
 
     # α – duration exponent
-    alpha, xmin_d, _, _ = tplfit(durations, limit=t_min)
+    alpha, xmin_d, _, _ = tplfit(durations, limit=t_min,
+                                 legacy_normalization=legacy_normalization)
     result["alpha"]  = alpha
     result["xmin_d"] = xmin_d
 

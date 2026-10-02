@@ -8,7 +8,7 @@ All other modules import from here.
 import sys
 import time
 import dataclasses
-from typing import Dict, List
+from typing import Dict, List, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -27,19 +27,23 @@ class MEARecording:
 
     Fields
     ------
-    sampling_rate  : float  – samples per second (Hz)
-    n_channels     : int    – total number of channels on the array
-    channel_ids    : list   – list of channel identifiers (ints or strings)
-    spike_times    : dict   – {channel_id: np.ndarray of spike times in SECONDS}
-    duration       : float  – recording duration in seconds
-    metadata       : dict   – manufacturer-specific extras (well name, gain, …)
+    sampling_rate    : float  – samples per second (Hz)
+    n_channels       : int    – total number of channels on the array
+    channel_ids      : list   – list of channel identifiers (ints or strings)
+    spike_times      : dict   – {channel_id: np.ndarray of spike times in SECONDS}
+    duration         : float  – recording duration in seconds
+    metadata         : dict   – manufacturer-specific extras (well name, gain, …)
+    spike_amplitudes : dict   – {channel_id: np.ndarray of peak-to-peak amplitudes
+                                 in µV, one value per spike}. None if the loader
+                                 does not provide waveform data.
     """
-    sampling_rate : float
-    n_channels    : int
-    channel_ids   : List
-    spike_times   : Dict[int, np.ndarray]   # channel_id → times in seconds
-    duration      : float
-    metadata      : dict
+    sampling_rate    : float
+    n_channels       : int
+    channel_ids      : List
+    spike_times      : Dict[int, np.ndarray]   # channel_id → times in seconds
+    duration         : float
+    metadata         : dict
+    spike_amplitudes : Optional[Dict[int, np.ndarray]] = None
 
     def all_spike_times(self) -> np.ndarray:
         """Return every spike time as one flat, sorted array (seconds)."""

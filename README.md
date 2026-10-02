@@ -1,10 +1,6 @@
-# CASCADE v0.8.0
+# CASCADE v0.9.2
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
-
-<div align="center">
-<img width="250" height="250" alt="CASCADE_Logo" src="https://github.com/user-attachments/assets/7a029bf6-93b7-4185-8859-888672b4bb65" />
-</div>
 
 CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA) recordings from multiple manufacturers. It reads manufacturer-specific spike files, converts them into a common internal format, and runs a standardised sequence of analyses: firing-rate characterisation, network burst detection, neuronal avalanche segmentation, criticality metrics, functional connectivity, and spatial entropy. All figures are saved as PNG (300 dpi) and all numerical results as TSV files. The pipeline is designed to produce reproducible results suitable for peer-reviewed publication.
 
@@ -52,20 +48,23 @@ cascade --test
 
 ```
 ================================
-  CASCADE v0.8.0 — Self-test
+  CASCADE v0.9.2 — Self-test
 ================================
   1. Synthetic recording generation... PASS
   2. Spike filtering (active-electrode)... PASS
-  3. ISI metrics computation... PASS
-  4. Spike binning and rates... PASS
-  5. Network burst detection... PASS
-  6. Active area analysis... PASS
-  7. Avalanche detection... PASS
-  8. Criticality metrics (tau, alpha, DCC, BR, SCE)... PASS
-  9. Functional connectivity... PASS
- 10. Spatial entropy... PASS
+  3. Spike filtering (amplitude)... PASS
+  4. ISI metrics computation... PASS
+  5. Spike binning and rates... PASS
+  6. Network burst detection... PASS
+  7. Active area analysis... PASS
+  8. Avalanche detection... PASS
+   9. Synchrony metrics (xcorr, Kreuz, Paiva)... PASS
+ 10. Power-law normalisation (known exponent)... PASS
+ 11. Criticality metrics (tau, alpha, DCC, BR, SCE)... PASS
+ 12. Functional connectivity... PASS
+ 13. Spatial entropy... PASS
 
-All 10 tests passed ✓
+All 13 tests passed ✓
 ```
 
 If any test fails, check your environment (missing dependencies, incorrect Python version, etc.).
@@ -183,6 +182,9 @@ mea_out/
 ├── bursts_<well>.tsv                  # network burst event table
 ├── avalanches_<well>.tsv              # avalanche catalogue
 ├── corr_<well>.tsv                    # raw Pearson correlation matrix
+├── synchrony_<well>.tsv               # synchrony metrics (Axion metric set)
+├── crosscorrelogram_<well>.png        # pooled cross-correlogram
+├── crosscorrelogram_norm_<well>.png   # auto-correlation-normalised correlogram
 ├── isi_metrics_<well>.tsv             # per-channel ISI statistics
 ├── active_area_<well>.tsv             # active electrode fraction per window
 ├── entropy_<well>.tsv                 # spatial entropy per window
@@ -249,6 +251,12 @@ Table of detected network burst events with start time, end time, duration, and 
 
 **`avalanches_<well>.tsv`**
 Catalogue of all avalanche events that passed the size and duration thresholds. Each row records the avalanche start time, total spike count (size), and duration in Δt bins. This is the dataset used for all criticality computations.
+
+**`synchrony_<well>.tsv`**
+Two-column metric/value table of the synchrony metrics, matching the Axion Neural Metric Tool set: `area_xcorr`, `area_xcorr_norm`, `fwhh_xcorr`, `fwhh_xcorr_norm` and, when requested, `kreuz_metric` and `synchrony_index`. Also records the parameters used (`sync_window_s`, `xcorr_bin_s`, `sync_index_sigma_s`), the pair counts, and `kreuz_subsampled` / `index_subsampled` flags so a subsampled result is never mistaken for a full one. Durations are in seconds. See the Synchrony metrics section for interpretation.
+
+**`crosscorrelogram_<well>.png`** and **`crosscorrelogram_norm_<well>.png`**
+Well-wide pooled inter-electrode cross-correlogram, standard and auto-correlation-normalised. Grey vertical lines mark the synchrony window and the shaded region is the area reported as `area_xcorr` / `area_xcorr_norm`. A tall narrow peak means high synchrony; a flat correlogram means none, in which case the FWHH value describes noise rather than network structure.
 
 **`corr_<well>.tsv`**
 Raw Pearson correlation matrix saved as a tab-separated square array. Rows and columns correspond to active channels in the order listed in `degrees_<well>.tsv`. Included for custom connectivity analyses beyond what CASCADE computes.
@@ -335,6 +343,7 @@ ltpltd_out/
 | `--ae` | off | Active-electrode: keep channels with ≥N spikes/min |
 | `--max_rate` | off | Noise filter: remove if rate >N spikes/min (try `1000`) |
 | `--max_rpv` | off | Noise filter: remove if >N% of ISIs <2 ms (try `1.0`) |
+| `--max_amplitude` | off | Noise filter: remove if any spike exceeds N µV peak-to-peak (try `200`). Supported by CL1, 3Brain, Maxwell, MCS, and Axion (all in µV). |
 | `--bin` | `1.0` | Bin size for rate computation (seconds) |
 
 **Avalanche detection**
@@ -352,6 +361,7 @@ ltpltd_out/
 |---|---|---|
 | `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
 | `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
+| `--legacy_powerlaw` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
 | `--pl_xmin_S` | auto | Manual xmin override (size fit) |
 | `--pl_xmin_D` | auto | Manual xmin override (duration fit) |
 | `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
@@ -376,6 +386,17 @@ ltpltd_out/
 | Flag | Default | Description |
 |---|---|---|
 | `--conn_thr` | `0.3` | Pearson \|r\| threshold for functional connection |
+
+**Synchrony**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--sync_metrics` | `xcorr` | `none` / `xcorr` / `kreuz` / `index` / `all`. `xcorr` is cheap (FFT); `kreuz` and `index` are O(N²) in channels |
+| `--sync_window` | `20.0` | Synchrony window in **ms** — the window around zero lag used for the area metrics. `5` for millisecond timescale, `100` for slow |
+| `--sync_bin` | `1.0` | Cross-correlogram bin width in **ms**. Absolute, never inferred from sampling rate |
+| `--sync_max_lag` | `500.0` | Maximum correlogram lag in **ms**. Must be wide enough to contain the peak or FWHH cannot be measured |
+| `--sync_sigma` | = window | Gaussian σ in **ms** for the Synchrony Index |
+| `--sync_max_channels` | `64` | Channel cap for the O(N²) measures; `0` = no cap |
 
 **Entropy**
 
@@ -419,7 +440,7 @@ ltpltd_out/
 
 ## Noise filtering
 
-MEA recordings sometimes contain electrodes picking up electrical noise rather than real spikes. CASCADE provides two independent filters:
+MEA recordings sometimes contain electrodes picking up electrical noise rather than real spikes. CASCADE provides three independent filters:
 
 ```bash
 # Remove high-rate channels (>1000 spikes/min ≈ 17 Hz; typical noise signature)
@@ -428,11 +449,205 @@ cascade --manufacturer [manufacturer] --input [input_recording] --max_rate 1000 
 # Remove channels with >1% refractory period violations (<2 ms inter-spike intervals; biological impossibility)
 cascade --manufacturer [manufacturer] --input [input_recording] --max_rpv 1.0 --output [output_dir]
 
-# Both filters together (recommended for noisy recordings)
-cascade --manufacturer [manufacturer] --input [input_recording] --ae 5 --max_rate 1000 --max_rpv 1.0 --output [output_dir]
+# Remove channels where any spike exceeds 200 µV peak-to-peak (artefact rejection)
+cascade --manufacturer [manufacturer] --input [input_recording] --max_amplitude 200 --output [output_dir]
+
+# All three filters together (recommended for noisy recordings)
+cascade --manufacturer [manufacturer] --input [input_recording] --ae 5 --max_rate 1000 --max_rpv 1.0 --max_amplitude 200 --output [output_dir]
 ```
 
 Use `--verbose` to see which channels were removed and why.
+
+Amplitudes are reported in µV for every manufacturer. Note that Maxwell stores a single-peak magnitude rather than a true peak-to-peak value, so a threshold is not strictly equivalent across devices — calibrate per device with `cascade-info` before settling on one.
+
+---
+
+## Synchrony metrics
+
+CASCADE computes the synchrony metric set of the Axion Neural Metric Tool, applied
+uniformly to **every** supported manufacturer. These are spike-timing measures and
+are distinct from the Pearson connectivity above, which correlates firing rates in
+1 s bins and therefore cannot see millisecond structure.
+
+### The two default metrics
+
+`--sync_metrics core` (the default) reports just two:
+
+| Metric | Output key | Source |
+|---|---|---|
+| Area under normalised cross-correlation | `area_xcorr_norm` | Axion NMT §4.4 |
+| Synchrony Index | `synchrony_index` | Paiva et al. 2010 |
+
+These are the two that **resolve on every manufacturer** and **actually separate
+recordings**. Measured across the five published sample recordings:
+
+| metric | spread (max/min) | CV | resolves on | verdict |
+|---|---:|---:|---|---|
+| `area_xcorr_norm` | 26× | 0.78 | 5/5 | **core** |
+| `synchrony_index` | 11× | 0.69 | 5/5 | **core** |
+| `area_xcorr` (raw) | 18× | 0.75 | 5/5 | same information, confounded by firing rate |
+| `fwhh_xcorr_norm` | 552× | 1.47 | **2/5** | large spread is mostly the resolution artefact |
+| `kreuz_metric` | **1.2×** | **0.09** | 5/5 | near-constant across very different cultures |
+
+Fewer, better-behaved numbers beat six that need caveats.
+
+### The rest, on request
+
+| `--sync_metrics` | Adds |
+|---|---|
+| `xcorr` | raw area and both FWHH values, with the resolution warning |
+| `kreuz` | `kreuz_metric` = 1 − Kreuz SPIKE-distance |
+| `index` | `synchrony_index` alone |
+| `all` | everything — the full Axion Neural Metric Tool set |
+
+`kreuz_metric` separates *different* cultures poorly, but it is parameter-free, which
+makes it the right choice for tracking change **within one culture over time** — a
+before/after stimulation comparison, for instance, where there is no window to be
+accused of having chosen favourably.
+
+```bash
+# correlogram metrics only (default), 20 ms synchrony window
+cascade --manufacturer [manufacturer] --input [recording] --output [dir]
+
+# millisecond timescale
+cascade --manufacturer [manufacturer] --input [recording] --sync_window 5 --output [dir]
+
+# everything, including the O(N^2) spike-train measures
+cascade --manufacturer [manufacturer] --input [recording] --sync_metrics all --output [dir]
+```
+
+Outputs: `synchrony_<well>.tsv`, plus `crosscorrelogram_<well>.png` and
+`crosscorrelogram_norm_<well>.png` with the synchrony window marked by grey
+vertical lines, as the Axion display draws them.
+
+**The pooled correlogram** is computed over all unique electrode pairs in the
+frequency domain, using the identity
+`Σ_{i<j} conj(F_i)·F_j = (|Σ F_i|² − Σ|F_i|²)/2`, so the cost is O(N·T log T) rather
+than O(N²·T log T). On the 341-active-channel MaxWell recording that avoids ~58,000
+pairwise products.
+
+**Why the timing parameters are absolute, not inferred.** `--sync_window`,
+`--sync_bin`, `--sync_max_lag` and `--sync_sigma` are all absolute durations in
+milliseconds. They are deliberately **not** derived from the sampling rate or the
+mean ISI, unlike the avalanche bin width, which `infer_dt()` adapts to the data.
+Sampling rates differ substantially between manufacturers (12.5 kHz on the Axion
+sample, 19.75 kHz on the 3Brain sample), so a sampling-rate-derived correlogram bin
+would make "area under the normalised cross-correlation at a 20 ms window" mean a
+different physical quantity on each device. Keeping these absolute is what makes the
+values comparable across platforms.
+
+**Choosing `--sync_bin`: check that FWHH has converged.** Full width at half height
+cannot resolve a peak narrower than the correlogram bin. Measured on the sample
+recordings:
+
+| Recording | 1/SR | FWHH @ 1.0 ms | @ 0.5 | @ 0.2 | @ 0.1 ms |
+|---|---|---|---|---|---|
+| Axion | 0.080 ms | 144.5 | 141.4 | 133.2 | 121.1 |
+| 3Brain | 0.051 ms | 1.275 | 0.661 | 0.483 | 0.392 |
+| MaxWell | 0.050 ms | 1.053 | 0.568 | 0.298 | 0.191 |
+
+Axion's value barely moves across a 10× change in bin width — that is a converged
+measurement of a genuinely broad (~130 ms) peak, and the 1 ms default is fine.
+3Brain and MaxWell instead track the bin width (MaxWell at almost exactly 2× the bin
+at every step), which means their true peaks are **narrower than the bin** and the
+reported FWHH is a resolution limit, not a network property. For those recordings
+FWHH is only a lower bound until it stops changing as `--sync_bin` shrinks, and at
+0.1 ms it still has not converged — their synchrony is sub-100 µs, approaching the
+0.05 ms sampling period, so spike-time quantisation may be the real floor.
+
+Practical rule: halve `--sync_bin` until FWHH stops changing. The area metrics are
+far less sensitive to bin width and are the better cross-recording comparison when
+peaks are this sharp. Note that very fine bins are expensive — 0.1 ms over a 300 s
+recording is 3 million bins per channel.
+
+**Interpreting FWHH.** Full width at half height is only meaningful when the
+correlogram has a genuine peak. For asynchronous activity the correlogram is flat
+and the reported FWHH describes a noise fluctuation, not network structure — check
+the correlogram plot before interpreting it. Verified against theory: for Gaussian
+jitter of standard deviation *j* per train, the pooled peak has standard deviation
+*j*·√2 and FWHH 2.355·*j*·√2, which the implementation reproduces across a 20× range
+of *j*.
+
+**Kreuz SPIKE-distance: install PySpike.** CASCADE defers to
+[PySpike](https://github.com/mariomulansky/PySpike) when it is available — that is the
+reference implementation, written by an author of Kreuz et al. (2013), and the values
+then match it to machine precision:
+
+```bash
+pip install pyspike          # or: pip install "cascade-mea[synchrony]"
+```
+
+Without PySpike, CASCADE falls back to its own port. The fallback satisfies the
+paper's guarantees (exactly 0 for identical trains, time-scale invariant to machine
+precision, monotonic with mismatch) but differs from the reference by up to 2.7e-2 on
+structured spike trains, because the paper specifies the dissimilarity profile
+(Eqs 16-19) precisely while leaving the first and last interval underspecified beyond
+"add auxiliary spikes at t=0 and t=T". The active path is recorded in the output as
+`kreuz_backend`, so a fallback number never looks like a reference one. Use PySpike
+for anything you intend to publish.
+
+**Kreuz SPIKE-distance** is parameter-free and time-scale independent, so it ignores
+`--sync_window` entirely. It uses the *improved* dissimilarity profile of Kreuz et
+al. (2013) Eq 19 — the 2013 paper exists because the original definition produced
+spuriously high instantaneous values for event-like firing patterns.
+
+**Synchrony Index** is the Schreiber-style Gaussian-kernel correlation as presented
+in Paiva et al. (2010) Eq 9, evaluated with the closed form of Eq 11, so no binning
+is involved. Note that the derived dissimilarity 1 − *r* is a **semi-metric**: it is
+symmetric and positive but does not satisfy the triangle inequality.
+
+**Cost.** `kreuz` and `index` are O(N²) in channels and dominate the runtime on dense
+arrays, which is why `--sync_metrics` defaults to `xcorr` and why
+`--sync_max_channels` caps them at 64 channels by default. Subsampling uses a fixed
+seed and is recorded in the output as `kreuz_subsampled` / `index_subsampled`, so a
+subsampled result never looks like a full one.
+
+---
+
+## Power-law normalisation and `--legacy_powerlaw`
+
+Since v0.9.1 the avalanche size and duration exponents (τ, α) are fitted with the
+discrete truncated power law normalised over **every integer** between the
+cut-offs:
+
+```
+p(y) = y^-a / Σ_{k=xmin}^{xmax} k^-a
+```
+
+This is the convention of Clauset et al. (2009) and of `plmle.py` in the NCC
+toolbox (Marshall et al. 2016).
+
+CASCADE ≤ 0.9.0 summed only over the avalanche values that actually occurred in
+the recording, reproducing `tplfit.py` from Habibollahi et al. (2022). That makes
+the normalising constant depend on the sample, which biases the exponent and also
+corrupts the KS-based xmin selection. The bias is largest when avalanches are few:
+
+| avalanches | old fit | corrected fit | true exponent |
+|-----------:|--------:|--------------:|--------------:|
+| 421 | 1.295 | 1.502 | 1.5 |
+| 898 | 1.372 | 1.498 | 1.5 |
+| 9,197 | 1.484 | 1.496 | 1.5 |
+| 27,288 | 1.499 | 1.500 | 1.5 |
+
+Below roughly 1,000 avalanches the old exponent was off by 0.1–0.2; above ~10,000
+the two agree.
+
+**This changes τ, α, β_pred, DCC and SCE** relative to v0.9.0 and earlier. β_fit,
+branching ratio, burst metrics, connectivity and entropy are unaffected.
+
+To regenerate numbers published with v0.9.0 or earlier:
+
+```bash
+# Corrected fit (default) — use this for all new analyses
+cascade --manufacturer [manufacturer] --input [input_recording] --output [output_dir]
+
+# Reproduce pre-0.9.1 numbers exactly (prints a warning)
+cascade --manufacturer [manufacturer] --input [input_recording] --legacy_powerlaw --output [output_dir]
+```
+
+`--legacy_powerlaw` exists only for reproducibility and provenance. It is not an
+alternative model — both paths assume the same distribution, and the legacy path
+simply evaluates its normalising constant incorrectly. Do not use it for new work.
 
 ---
 

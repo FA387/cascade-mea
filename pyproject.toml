@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cascade-mea"
-version = "0.8.0"
+version = "0.9.2"
 description = "CASCADE — Criticality Avalanche Spike Cross-platform Analysis Detection Engine: a Multi-Manufacturer MEA Analysis Pipeline"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -49,6 +49,14 @@ dependencies = [
     "h5py",
     "seaborn",
 ]
+
+[project.optional-dependencies]
+# PySpike is the reference implementation of the Kreuz SPIKE-distance, written by an
+# author of Kreuz et al. (2013). When installed, core/synchrony.py defers to it and
+# the value matches the reference exactly; without it CASCADE falls back to its own
+# port, which satisfies the paper's guarantees but differs slightly in the
+# edge-interval convention. Install with: pip install "cascade-mea[synchrony]"
+synchrony = ["pyspike"]
 
 [project.urls]
 Homepage      = "https://github.com/FA387/cascade-mea"
