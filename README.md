@@ -367,10 +367,10 @@ ltpltd_out/
 |---|---|---|
 | `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
 | `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
-| `--legacy_powerlaw` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
+| `--simple_PL` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
 | `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
 | `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
-| `--pl_exclude` | off | Also trim the upper tail before fitting (Habibollahi 2022 `EXCLUDE`). For comparison with that pipeline only: add `--legacy_powerlaw` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
+| `--pl_exclude` | off | Also trim the upper tail before fitting (Habibollahi 2022 `EXCLUDE`). For comparison with that pipeline only: add `--simple_PL` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
 | `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
 | `--skip_rare_durations` | off | Exclude singletons from log-log fit (does not affect MLE) |
 
@@ -618,7 +618,7 @@ subsampled result never looks like a full one.
 
 ---
 
-## Power-law normalisation and `--legacy_powerlaw`
+## Power-law normalisation and `--simple_PL`
 
 Since v0.9.1 the avalanche size and duration exponents (τ, α) are fitted with the
 discrete truncated power law normalised over **every integer** between the
@@ -656,10 +656,10 @@ To regenerate numbers published with v0.9.0 or earlier:
 cascade --manufacturer [manufacturer] --input [input_recording] --output [output_dir]
 
 # Reproduce pre-0.9.1 numbers exactly (prints a warning)
-cascade --manufacturer [manufacturer] --input [input_recording] --legacy_powerlaw --output [output_dir]
+cascade --manufacturer [manufacturer] --input [input_recording] --simple_PL --output [output_dir]
 ```
 
-`--legacy_powerlaw` exists only for reproducibility and provenance. It is not an
+`--simple_PL` exists only for reproducibility and provenance. It is not an
 alternative model — both paths assume the same distribution, and the legacy path
 simply evaluates its normalising constant incorrectly. Do not use it for new work.
 

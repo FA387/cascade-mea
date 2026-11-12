@@ -308,7 +308,7 @@ def main():
                     type=int, default=4,
                     help="Upper limit for the xmin search in the avalanche "
                          "DURATION power-law fit. Recommended: 3–6. (default: 4)")
-    crit_group.add_argument("--legacy_powerlaw",
+    crit_group.add_argument("--simple_PL",
                     action="store_true",
                     help="Normalise the power-law MLE over only the observed "
                          "avalanche values instead of every integer between the "
@@ -317,7 +317,8 @@ def main():
                          "the exponent is "
                          "biased (severely below ~1000 avalanches). Use ONLY to "
                          "reproduce previously published numbers, never for new "
-                         "analyses. (default: off = correct normalisation)")
+                         "analyses. Add --simple_BR as well to reproduce v0.8.0 "
+                         "exactly. (default: off = correct normalisation)")
     crit_group.add_argument("--pl_xmin_S",
                     type=int, default=None,
                     help="Fix the lower cut-off (xmin) of the size power-law fit "
@@ -338,7 +339,7 @@ def main():
                          "max^0.8, then drop the largest values until KS < "
                          "min(1/sqrt(n), 0.1)). --burst_min/--t_min act as their "
                          "bm/tm. Use it to compare with numbers from that "
-                         "pipeline; add --legacy_powerlaw to reproduce that code "
+                         "pipeline; add --simple_PL to reproduce that code "
                          "exactly. The trimming stops once the fit passes, so it "
                          "favours a power law by construction. The untrimmed fit "
                          "is still written to the report. Cannot be combined "
@@ -374,6 +375,7 @@ def main():
                          "Priesemann 2018. The simple estimate is biased toward 0 "
                          "when only part of the network is recorded, as on every "
                          "MEA. Use ONLY to reproduce previously published numbers. "
+                         "Add --simple_PL as well to reproduce v0.8.0 exactly. "
                          "(default: off = MR estimator)")
     br_group.add_argument("--br_tmax",
                     type=float, default=2000.0,
@@ -754,14 +756,14 @@ def main():
     sizes     = av_df["avalanche_size"].to_numpy() if not av_df.empty else np.array([])
     durations = av_df["duration_bins"].to_numpy()  if not av_df.empty else np.array([])
 
-    if args.legacy_powerlaw:
-        say("--legacy_powerlaw: using the biased pre-0.9.1 normalisation. "
+    if args.simple_PL:
+        say("--simple_PL: using the biased pre-0.9.1 normalisation. "
             "Valid only for reproducing previously published numbers.",
             "[WARN]", YEL, enabled=True)
     exp_metrics = compute_exponents(sizes, durations,
                                     burst_min=args.burst_min,
                                     t_min=args.t_min,
-                                    legacy_normalization=args.legacy_powerlaw)
+                                    legacy_normalization=args.simple_PL)
     auto_metrics = None
     if args.pl_exclude:
         # Keep the untrimmed fit so the effect of trimming is always visible.
@@ -769,7 +771,7 @@ def main():
         exp_metrics = compute_exponents(sizes, durations,
                                         burst_min=args.burst_min,
                                         t_min=args.t_min,
-                                        legacy_normalization=args.legacy_powerlaw,
+                                        legacy_normalization=args.simple_PL,
                                         exclude=True)
         if exp_metrics.get("n_fit_s") is not None:
             n_tot = exp_metrics["n_total"]
@@ -788,7 +790,7 @@ def main():
         exp_metrics = compute_exponents(sizes, durations,
                                         burst_min=args.burst_min,
                                         t_min=args.t_min,
-                                        legacy_normalization=args.legacy_powerlaw,
+                                        legacy_normalization=args.simple_PL,
                                         xmin_s=args.pl_xmin_S,
                                         xmin_d=args.pl_xmin_D)
         say(f"xmin set manually (--pl_xmin_S={args.pl_xmin_S}, --pl_xmin_D={args.pl_xmin_D}): "

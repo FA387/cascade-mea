@@ -9,6 +9,13 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — `--legacy_powerlaw` renamed to `--simple_PL`
+
+Pairs with `--simple_BR`: each flag switches one metric back to the simpler v0.8.0
+method (`--simple_PL` the power-law normalisation, `--simple_BR` the branching ratio).
+Use both to reproduce v0.8.0 exactly. The old name was never in a released version,
+so there is no alias; CHANGELOG entries below use the new name.
+
 ### Fixed — method attribution wording (no numerical change)
 
 The report, CLI help and docstrings said "Habibollahi 2022 method/default" where
@@ -25,7 +32,7 @@ line of `criticality_report_<well>.txt`.
   bm = 10, tm = 2.
 - β_fit range is t_min < D < t_min + 60, strict at both ends (Python reference; the
   MATLAB original uses + 30), not `[t_min, t_min + 60]`.
-- `--legacy_powerlaw` reproduces CASCADE ≤ 0.9.0 exactly, with the normalisation of
+- `--simple_PL` reproduces CASCADE ≤ 0.9.0 exactly, with the normalisation of
   the reference `tplfit.py`. It does not reproduce `tplfit.py` exactly, because
   CASCADE clips the fitted CDF to [0, 1] and the reference does not.
 - `--pl_exclude` reproduces the **Python** reference
@@ -77,7 +84,7 @@ New outputs: `branching_mr_<well>.tsv` (r_k per lag with both fits) and
 `branching_mr_<well>.png`. `branching_points_<well>.tsv` is still written.
 
 New flags:
-- `--simple_BR` reports the old single-lag value. With `--legacy_powerlaw` it
+- `--simple_BR` reports the old single-lag value. With `--simple_PL` it
   reproduces v0.8.0 numbers exactly. Use only for previously published results.
 - `--br_tmax` (default 2000 ms) sets the longest lag.
 
@@ -100,7 +107,7 @@ KS < min(1/√n, 0.1), cap duration xmax at max^0.9 when it ends below 40, and f
 on [xmin, xmax]. `--pl_exclude` adds that step. Off by default; nothing changes
 without it.
 
-With `--legacy_powerlaw` it reproduces their code exactly: τ, α, both fit ranges,
+With `--simple_PL` it reproduces their code exactly: τ, α, both fit ranges,
 β_pred, β_fit and DCC match `AV_analysis_ExponentErrorComments` to 0.0 on all five
 sample recordings, at bm/tm = 12/4 and 20/3. That needed `tplfit(clip_cdf=False)`:
 CASCADE has clipped the fitted CDF to [0, 1] since 0.8.0, but the legacy CDF can
@@ -318,7 +325,7 @@ approaches zero. The bias was masking a weak fit.
 
 ### Added
 
-- **`--legacy_powerlaw`** reproduces the pre-0.9.1 normalisation exactly, so
+- **`--simple_PL`** reproduces the pre-0.9.1 normalisation exactly, so
   previously published numbers stay reproducible. Verified: with this flag, all
   four manufacturers reproduce the bundled v0.8.0 reference output byte-for-byte.
   It prints a warning and must not be used for new analyses.
