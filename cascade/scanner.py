@@ -391,59 +391,57 @@ def main():
             "  cascade-info --input /data/recordings/ --manufacturer cl --ae 5 --output info_out"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
 
-    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
-    add_citation_argument(ap)
+    # Flags are grouped by workflow step (same order as README "All flags").
 
-    ap.add_argument("--manufacturer",
+    g = ap.add_argument_group("1 Setup — input / output")
+    g.add_argument("--manufacturer",
                     required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion"],
                     help="MEA manufacturer. 3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv)")
-
-    # ── input ──────────────────────────────────────────────────────────────────
-    src = ap.add_argument_group("Input")
-    src.add_argument("--input",
+    g.add_argument("--input",
                      default=None, metavar="PATH",
                      help="A recording file (.bxr, .h5 or .csv), or a folder: every "
                           "file of the --manufacturer's type in it is scanned "
                           "(3brain .bxr; maxwell/cl/mcs .h5; axion .csv).")
     # pre-0.9.5 spelling of a folder --input; hidden, kept so old scripts still run
-    src.add_argument("--folder", default=None, help=argparse.SUPPRESS)
-    src.add_argument("--well",
+    g.add_argument("--folder", default=None, help=argparse.SUPPRESS)
+    g.add_argument("--well",
                      default=None, metavar="NAME",
                      help="Well or stream name (e.g. Well_A1 for 3Brain, "
                           "data0000 for Maxwell). Default: first available.")
+    g.add_argument("--sr",
+                     type=float, default=None, metavar="HZ",
+                     help="Sampling rate in Hz. Only needed when reading a CSV "
+                          "file that uses a frame column instead of time_s.")
+    g.add_argument("--output",
+                     default=None, metavar="DIR",
+                     help=f"Output folder: saves the summary table as {SUMMARY_NAME} "
+                          "(one row per file). Created automatically if it does not "
+                          "exist. Default: print to the terminal only.")
 
-    # ── time window ────────────────────────────────────────────────────────────
-    win = ap.add_argument_group("Time Window")
-    win.add_argument("--start",
+    g = ap.add_argument_group("2 Preprocessing — time window and active channels")
+    g.add_argument("--start",
                      type=float, default=0.0, metavar="SEC",
                      help="Start of the window to inspect in seconds. "
                           "(default: 0 = beginning of recording)")
-    win.add_argument("--dur",
+    g.add_argument("--dur",
                      type=float, default=None, metavar="SEC",
                      help="Duration of the window in seconds. "
                           "Default: full recording length.")
-
-    # ── electrode filter ───────────────────────────────────────────────────────
-    flt = ap.add_argument_group("Electrode Filter")
-    flt.add_argument("--ae",
+    g.add_argument("--ae",
                      type=float, default=0.0, metavar="N",
                      help="Count channels with >= N spikes per minute as active. "
                           "Set to 0 to count all channels with at least 1 spike. "
                           "(default: 0)")
 
-    # ── output ─────────────────────────────────────────────────────────────────
-    out = ap.add_argument_group("Output")
-    out.add_argument("--output",
-                     default=None, metavar="DIR",
-                     help=f"Output folder: saves the summary table as {SUMMARY_NAME} "
-                          "(one row per file). Created automatically if it does not "
-                          "exist. Default: print to the terminal only.")
-    out.add_argument("--sr",
-                     type=float, default=None, metavar="HZ",
-                     help="Sampling rate in Hz. Only needed when reading a CSV "
-                          "file that uses a frame column instead of time_s.")
+    g = ap.add_argument_group("5 Misc — information (no analysis)")
+    g.add_argument("-h", "--help", action="help",
+                    help="Show this help message and exit.")
+    g.add_argument("--version", action="version", version=f"CASCADE v{__version__}",
+                    help="Show the CASCADE version and exit.")
+    add_citation_argument(g)
 
     args = ap.parse_args()
 

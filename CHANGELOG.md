@@ -36,6 +36,16 @@ writes, instead of `rates_*.csv`.
 - `cascade --input` help now lists `.csv` and says the auto-search uses the first
   `.bxr`/`.h5` file in the current folder.
 
+### Changed — flags grouped by workflow step
+
+`--help` of all three tools and the README flag tables now group the flags by step:
+**1 Setup** (input, output, manufacturer), **2 Preprocessing** (time window, spike
+filters), **3 Analysis** (parameters of each calculation), **4 Output** (figure formats,
+terminal), **5 Misc** (`--help`, `--version`, `--citation`, `--test`). `--bin` moved out
+of "Spike filtering" (it sets the firing-rate bin, it filters nothing) and
+`--simple_PL`/`--simple_BR` share a "reproducing v0.8.0" group. Layout only: every
+flag's name, default and behaviour is unchanged.
+
 ### Fixed — README
 
 - `cascade-ltpltd` examples now work (see above).

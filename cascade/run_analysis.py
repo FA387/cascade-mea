@@ -32,37 +32,8 @@ python run_analysis.py --input recording.bxr --manufacturer 3brain --epochA 0,60
 
 Flags
 -----
---input              path to data file (auto-searched if omitted)
---manufacturer      3brain | maxwell | cl | mcs | axion  (required)
---well              well/stream name (default: first available)
---start             start of analysis window in seconds (default: 0)
---dur               duration of analysis window in seconds (default: full recording)
---output               output folder (default: mea_out)
---bin               bin size for firing rates in seconds (default: 1.0)
---ae                active-electrode filter: keep channels with >= X spikes/min (default: 0 = off)
---max_rate          noisy-electrode filter: remove channels with > X spikes/min (default: 0 = off)
-                    recommended: 1000 (≈ 17 Hz) for in-vitro MEA
---max_rpv           noisy-electrode filter: remove channels with > X% of ISIs < 2 ms (default: 0 = off)
-                    recommended: 1.0–2.0% for in-vitro MEA
---ava_size          minimum avalanche size in spikes (default: 2)
---ava_dur           minimum avalanche duration in bins (default: 1 — no duration filter)
---perc              percentile threshold for avalanche detection (default: 0.0 = off)
-                    0.0 = any spike counts; 0.25 = default of the Habibollahi et al. 2023
-                    reference code (their paper reports 40% of the median)
---aval_dt           avalanche bin width in seconds (default: inferred from mean ISI)
---burst_min_spikes  min spikes in a run to count as a network burst (default: 5)
---burst_max_gap     max gap between consecutive spikes within a burst in seconds (default: 0.1)
---burst_min         upper xmin limit for size power-law fit (default: 12)
---t_min             upper xmin limit for duration power-law fit (default: 4)
---conn_thr          |r| threshold for connectivity edges (default: 0.3)
---entropy_win       window size for entropy and active-area curves in seconds (default: 10)
---sc_Dmin           shape collapse: min avalanche duration in bins (default: 4)
---sc_Dmax           shape collapse: max avalanche duration in bins (default: 20)
---epochA            epoch A window: 'start,duration' in seconds  e.g. '0,60'
---epochB            epoch B window: 'start,duration' in seconds  e.g. '120,60'
---svg               also save all figures as SVG (default: PNG only)
---jpg               also save all figures as JPG (default: PNG only)
---verbose           print progress messages
+Run `cascade --help`, or see "All flags" in README.md. Both group the flags by
+workflow step: 1 Setup, 2 Preprocessing, 3 Analysis, 4 Output, 5 Misc.
 """
 
 import argparse
@@ -180,76 +151,62 @@ def main():
             "Other CASCADE tools:\n"
             "  cascade-info      Quick recording inspector (duration, channels,\n"
             "                    active electrodes, time-window support)\n"
-            "                    Usage: python scanner.py --help\n\n"
-            "  cascade-ltpltd    LTP/LTD classification from firing-rate CSVs\n"
-            "                    Usage: python ltpltd.py --help\n\n"
+            "                    Usage: cascade-info --help\n\n"
+            "  cascade-ltpltd    LTP/LTD classification from rates_*.tsv files\n"
+            "                    Usage: cascade-ltpltd --help\n\n"
             "Example:\n"
-            "  cascade --input recording.bxr --output results/ --ae 5 --ava_size 2 --verbose"
+            "  cascade --manufacturer 3brain --input recording.bxr --output results/ --ae 5 --verbose"
         ),
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
 
-    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
-    add_citation_argument(ap)
-    ap.add_argument("--test", action="store_true",
-                    help="Run the built-in self-test with synthetic data. "
-                         "No recording file required.")
+    # Flags are grouped by workflow step (same order as README "All flags"):
+    # 1 Setup, 2 Preprocessing, 3 Analysis, 4 Output, 5 Misc.
 
-    # ── input / output ─────────────────────────────────────────────────────────
-    io_group = ap.add_argument_group("Input / Output")
-    io_group.add_argument("--input",
-                    default=None,
-                    help="Path to the recording file (.bxr, .h5 or .csv). "
-                         "If omitted, CASCADE uses the first .bxr or .h5 file "
-                         "in the current folder.")
-    io_group.add_argument("--manufacturer",
+    g = ap.add_argument_group("1 Setup — input / output")
+    g.add_argument("--manufacturer",
                     required=False, default=None,
                     choices=["3brain", "maxwell", "cl", "mcs", "axion"],
                     help="MEA manufacturer (required except with --test). "
                          "3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv)")
-    io_group.add_argument("--well",
+    g.add_argument("--input",
+                    default=None,
+                    help="Path to the recording file (.bxr, .h5 or .csv). "
+                         "If omitted, CASCADE uses the first .bxr or .h5 file "
+                         "in the current folder.")
+    g.add_argument("--well",
                     default=None,
                     help="Well or stream name to analyse (e.g. Well_A1 for 3Brain, "
                          "data0000 for Maxwell). Default: first available well.")
-    io_group.add_argument("--output",
+    g.add_argument("--output",
                     default="mea_out",
                     help="Output folder for all figures and data files. "
                          "Created automatically if it does not exist. (default: mea_out)")
-    io_group.add_argument("--svg",
-                    action="store_true",
-                    help="Also save all figures as SVG.")
-    io_group.add_argument("--jpg",
-                    action="store_true",
-                    help="Also save all figures as JPG (300 dpi).")
-    io_group.add_argument("--verbose",
-                    action="store_true",
-                    help="Print detailed progress messages to the terminal.")
 
-    # ── recording window ───────────────────────────────────────────────────────
-    win_group = ap.add_argument_group("Recording Window")
-    win_group.add_argument("--start",
+    g = ap.add_argument_group("2 Preprocessing — recording window")
+    g.add_argument("--start",
                     type=float, default=0.0,
                     help="Start of the analysis window in seconds. (default: 0)")
-    win_group.add_argument("--dur",
+    g.add_argument("--dur",
                     type=float, default=None,
                     help="Duration of the analysis window in seconds. "
                          "Default: full recording length.")
 
-    # ── spike filtering ────────────────────────────────────────────────────────
-    spike_group = ap.add_argument_group("Spike Filtering")
-    spike_group.add_argument("--ae",
+    g = ap.add_argument_group("2 Preprocessing — spike filtering")
+    g.add_argument("--ae",
                     type=float, default=0.0,
                     help="Active electrode filter. Keep only channels that fired "
                          "at least X spikes per minute. Set to 0 to keep all "
                          "channels. (default: 0 = off)")
-    spike_group.add_argument("--max_rate",
+    g.add_argument("--max_rate",
                     type=float, default=0.0,
                     help="Noisy-electrode filter: remove channels whose firing rate "
                          "exceeds this value (spikes per minute). Electrodes with "
                          "abnormally high rates are typically recording electrical "
                          "noise rather than real neurons. Set to 0 to disable. "
                          "Recommended starting value: 1000 (≈ 17 Hz). (default: 0 = off)")
-    spike_group.add_argument("--max_rpv",
+    g.add_argument("--max_rpv",
                     type=float, default=0.0,
                     help="Noisy-electrode filter: remove channels where more than "
                          "this percentage of inter-spike intervals are shorter than "
@@ -257,7 +214,7 @@ def main():
                          "fire faster than ~500 Hz; a high violation rate indicates "
                          "electrical noise. Set to 0 to disable. "
                          "Recommended starting value: 1.0 (1%%). (default: 0 = off)")
-    spike_group.add_argument("--max_amplitude",
+    g.add_argument("--max_amplitude",
                     type=float, default=0.0,
                     help="Noisy-electrode filter: remove channels where any single "
                          "spike has a peak-to-peak waveform amplitude exceeding this "
@@ -267,30 +224,95 @@ def main():
                          "Set to 0 to disable. Recommended starting value: 200 (µV). "
                          "Supported: CL1, 3Brain, Maxwell (if stored), MCS, Axion "
                          "— all in µV. (default: 0 = off)")
-    spike_group.add_argument("--bin",
+
+    g = ap.add_argument_group("3 Analysis — firing rate and connectivity")
+    g.add_argument("--bin",
                     type=float, default=1.0,
                     help="Bin size in seconds for computing per-channel firing "
                          "rates (used for heatmap and connectivity). (default: 1.0)")
+    g.add_argument("--conn_thr",
+                    type=float, default=0.3,
+                    help="Pearson correlation threshold for drawing a functional "
+                         "connectivity edge between two channels. Pairs with "
+                         "|r| >= this value are connected. (default: 0.3)")
 
-    # ── avalanche detection ────────────────────────────────────────────────────
-    ava_group = ap.add_argument_group("Avalanche Detection")
-    ava_group.add_argument("--ava_size",
+    g = ap.add_argument_group("3 Analysis — network bursts")
+    g.add_argument("--burst_min_spikes",
+                    type=int, default=5,
+                    help="Minimum number of spikes required for a run to be "
+                         "counted as a network burst. Lower values detect more, "
+                         "shorter bursts (MEAanalysis default: 5). "
+                         "Higher values require denser events. (default: 5)")
+    g.add_argument("--burst_max_gap",
+                    type=float, default=0.1,
+                    help="Maximum allowed gap between consecutive spikes (seconds) "
+                         "within a burst. Spikes further apart than this split the "
+                         "burst into two. (default: 0.1)")
+
+    g = ap.add_argument_group("3 Analysis — synchrony")
+    g.add_argument("--sync_metrics",
+                    choices=["none", "core", "xcorr", "kreuz", "index", "all"],
+                    default="core",
+                    help="Which synchrony metrics to compute. 'core' reports the two "
+                         "that resolve on every manufacturer and discriminate best "
+                         "between recordings: area under the normalised "
+                         "cross-correlation, and the Synchrony Index. 'xcorr' adds "
+                         "the raw area and both full-width-at-half-height values; "
+                         "'kreuz' = 1 - Kreuz SPIKE-distance; 'index' = Synchrony "
+                         "Index alone; 'all' = everything, mirroring the Axion "
+                         "Neural Metric Tool. Note 'kreuz' and 'index' are O(N^2) in "
+                         "channels and much slower than the correlogram. "
+                         "(default: core)")
+    g.add_argument("--sync_window",
+                    type=float, default=20.0,
+                    help="Synchrony window in MILLISECONDS: the window around zero "
+                         "lag used to compute the area under the cross-correlation. "
+                         "A short window (5) emphasises synchrony on a millisecond "
+                         "timescale; a long window (100) captures slow timescales. "
+                         "(default: 20.0)")
+    g.add_argument("--sync_bin",
+                    type=float, default=1.0,
+                    help="Cross-correlogram bin width in MILLISECONDS. This is an "
+                         "absolute duration and is deliberately NOT inferred from "
+                         "the sampling rate, so that synchrony values are "
+                         "comparable across manufacturers. (default: 1.0)")
+    g.add_argument("--sync_max_lag",
+                    type=float, default=500.0,
+                    help="Maximum lag of the cross-correlogram in MILLISECONDS. "
+                         "Must be wide enough to contain the correlogram peak, or "
+                         "the full width at half height cannot be measured. "
+                         "(default: 500.0)")
+    g.add_argument("--sync_sigma",
+                    type=float, default=None,
+                    help="Gaussian timescale sigma in MILLISECONDS for the "
+                         "Synchrony Index. Small relative to the mean ISI measures "
+                         "spike-timing coincidence; large approaches a firing-rate "
+                         "comparison. (default: same as --sync_window)")
+    g.add_argument("--sync_max_channels",
+                    type=int, default=64,
+                    help="Cap on the number of channels used for the O(N^2) "
+                         "measures (--sync_metrics kreuz/index/all). Channels are "
+                         "subsampled with a fixed seed, and the output records that "
+                         "subsampling occurred. 0 = no cap. (default: 64)")
+
+    g = ap.add_argument_group("3 Analysis — avalanche detection")
+    g.add_argument("--ava_size",
                     type=int, default=2,
                     help="Minimum avalanche size (total spikes). Avalanches with "
                          "fewer than X spikes are discarded. (default: 2)")
-    ava_group.add_argument("--ava_dur",
+    g.add_argument("--ava_dur",
                     type=int, default=1,
                     help="Minimum avalanche duration (bins). Avalanches spanning "
                          "fewer than X bins are discarded. Default is 1 (no "
                          "duration filter) because single-bin events are valid "
                          "avalanches — they represent synchronous bursts where "
                          "many channels fire within one Δt window. (default: 1)")
-    ava_group.add_argument("--aval_dt",
+    g.add_argument("--aval_dt",
                     type=float, default=None,
                     help="Avalanche bin width in seconds. Default: automatically "
                          "inferred from the mean inter-spike interval (ISI) of the "
                          "population, clipped to 1–50 ms.")
-    ava_group.add_argument("--perc",
+    g.add_argument("--perc",
                     type=float, default=0.0,
                     help="Percentile threshold for avalanche detection. The bin "
                          "count must exceed this percentile of all bin counts to "
@@ -300,41 +322,29 @@ def main():
                          "for noisy recordings; their paper reports 40%% of the "
                          "median instead. (default: 0.0)")
 
-    # ── criticality metrics ────────────────────────────────────────────────────
-    crit_group = ap.add_argument_group("Criticality Metrics")
-    crit_group.add_argument("--burst_min",
+    g = ap.add_argument_group("3 Analysis — power-law fit (tau, alpha, DCC)")
+    g.add_argument("--burst_min",
                     type=int, default=12,
                     help="Upper limit for the xmin search in the avalanche SIZE "
                          "power-law fit. The algorithm tries xmin values from 1 "
                          "to this number and picks the best one. Recommended: "
                          "8–20. (default: 12)")
-    crit_group.add_argument("--t_min",
+    g.add_argument("--t_min",
                     type=int, default=4,
                     help="Upper limit for the xmin search in the avalanche "
                          "DURATION power-law fit. Recommended: 3–6. (default: 4)")
-    crit_group.add_argument("--simple_PL",
-                    action="store_true",
-                    help="Normalise the power-law MLE over only the observed "
-                         "avalanche values instead of every integer between the "
-                         "cut-offs. This reproduces CASCADE <= 0.9.0 exactly, "
-                         "using the normalisation of the reference tplfit.py, but "
-                         "the exponent is "
-                         "biased (severely below ~1000 avalanches). Use ONLY to "
-                         "reproduce previously published numbers, never for new "
-                         "analyses. Add --simple_BR as well to reproduce v0.8.0 "
-                         "exactly. (default: off = correct normalisation)")
-    crit_group.add_argument("--pl_xmin_S",
+    g.add_argument("--pl_xmin_S",
                     type=int, default=None,
                     help="Fix the lower cut-off (xmin) of the size power-law fit "
                          "instead of searching for it. tau, beta_pred, DCC, SCE "
                          "and the log-log plot all use it; the automatic fit is "
                          "still written to the report for comparison. "
                          "Default: auto-detected (recommended).")
-    crit_group.add_argument("--pl_xmin_D",
+    g.add_argument("--pl_xmin_D",
                     type=int, default=None,
                     help="Fix the lower cut-off (xmin) of the duration power-law "
                          "fit instead of searching for it. Default: auto-detected.")
-    crit_group.add_argument("--pl_exclude",
+    g.add_argument("--pl_exclude",
                     action="store_true",
                     help="Also trim the upper tail before fitting, with the "
                          "EXCLUDE step of the Habibollahi et al. 2023 Python "
@@ -348,30 +358,65 @@ def main():
                          "favours a power law by construction. The untrimmed fit "
                          "is still written to the report. Cannot be combined "
                          "with --pl_xmin_S/D. (default: off)")
-    crit_group.add_argument("--skip_rare_sizes",
+    g.add_argument("--skip_rare_sizes",
                     action="store_true",
                     help="On the size log-log plot, exclude avalanche sizes that "
                          "occurred only once in the recording. These rare points "
                          "can distort the visual fit line. Does NOT affect the "
                          "MLE exponent value.")
-    crit_group.add_argument("--skip_rare_durations",
+    g.add_argument("--skip_rare_durations",
                     action="store_true",
                     help="Same as --skip_rare_sizes but for the duration log-log "
                          "plot.")
 
-    # ── shape collapse ─────────────────────────────────────────────────────────
-    sc_group = ap.add_argument_group("Shape Collapse")
-    sc_group.add_argument("--sc_Dmin",
+    g = ap.add_argument_group("3 Analysis — shape collapse")
+    g.add_argument("--sc_Dmin",
                     type=int, default=4,
                     help="Minimum avalanche duration (in bins) to include in the "
                          "shape collapse analysis. (default: 4)")
-    sc_group.add_argument("--sc_Dmax",
+    g.add_argument("--sc_Dmax",
                     type=int, default=20,
                     help="Maximum avalanche duration (in bins) to include in the "
                          "shape collapse analysis. (default: 20)")
 
-    br_group = ap.add_argument_group("Branching Ratio")
-    br_group.add_argument("--simple_BR",
+    g = ap.add_argument_group("3 Analysis — branching ratio")
+    g.add_argument("--br_tmax",
+                    type=float, default=2000.0,
+                    help="Longest lag (ms) for the MR estimator: lags k = 1 … "
+                         "br_tmax/dt bins (at least 10, at most a tenth of the "
+                         "recording). Should span several autocorrelation times; "
+                         "the report warns when it does not. (default: 2000)")
+
+    g = ap.add_argument_group("3 Analysis — entropy and active area")
+    g.add_argument("--entropy_win",
+                    type=float, default=10.0,
+                    help="Window size in seconds for computing spatial entropy "
+                         "and active electrode fraction over time. (default: 10.0)")
+
+    g = ap.add_argument_group("3 Analysis — epoch comparison (optional)")
+    g.add_argument("--epochA",
+                    default=None,
+                    help="First epoch window as 'start,duration' in seconds. "
+                         "Example: --epochA 0,60 for the first 60 seconds.")
+    g.add_argument("--epochB",
+                    default=None,
+                    help="Second epoch window as 'start,duration' in seconds. "
+                         "Example: --epochB 120,60 for 60 seconds starting at 2 min. "
+                         "Both --epochA and --epochB must be set to compare.")
+
+    g = ap.add_argument_group("3 Analysis — reproducing v0.8.0 (not for new analyses)")
+    g.add_argument("--simple_PL",
+                    action="store_true",
+                    help="Normalise the power-law MLE over only the observed "
+                         "avalanche values instead of every integer between the "
+                         "cut-offs. This reproduces CASCADE <= 0.9.0 exactly, "
+                         "using the normalisation of the reference tplfit.py, but "
+                         "the exponent is "
+                         "biased (severely below ~1000 avalanches). Use ONLY to "
+                         "reproduce previously published numbers, never for new "
+                         "analyses. Add --simple_BR as well to reproduce v0.8.0 "
+                         "exactly. (default: off = correct normalisation)")
+    g.add_argument("--simple_BR",
                     action="store_true",
                     help="Report the simple single-lag branching ratio of "
                          "CASCADE <= 0.9.3 (regression of mean N(t+1) on N(t)) "
@@ -381,100 +426,27 @@ def main():
                          "MEA. Use ONLY to reproduce previously published numbers. "
                          "Add --simple_PL as well to reproduce v0.8.0 exactly. "
                          "(default: off = MR estimator)")
-    br_group.add_argument("--br_tmax",
-                    type=float, default=2000.0,
-                    help="Longest lag (ms) for the MR estimator: lags k = 1 … "
-                         "br_tmax/dt bins (at least 10, at most a tenth of the "
-                         "recording). Should span several autocorrelation times; "
-                         "the report warns when it does not. (default: 2000)")
 
-    # ── burst detection ────────────────────────────────────────────────────────
-    burst_group = ap.add_argument_group("Burst Detection")
-    burst_group.add_argument("--burst_min_spikes",
-                    type=int, default=5,
-                    help="Minimum number of spikes required for a run to be "
-                         "counted as a network burst. Lower values detect more, "
-                         "shorter bursts (MEAanalysis default: 5). "
-                         "Higher values require denser events. (default: 5)")
-    burst_group.add_argument("--burst_max_gap",
-                    type=float, default=0.1,
-                    help="Maximum allowed gap between consecutive spikes (seconds) "
-                         "within a burst. Spikes further apart than this split the "
-                         "burst into two. (default: 0.1)")
+    g = ap.add_argument_group("4 Output — figures and terminal")
+    g.add_argument("--svg",
+                    action="store_true",
+                    help="Also save all figures as SVG.")
+    g.add_argument("--jpg",
+                    action="store_true",
+                    help="Also save all figures as JPG (300 dpi).")
+    g.add_argument("--verbose",
+                    action="store_true",
+                    help="Print detailed progress messages to the terminal.")
 
-    # ── connectivity ───────────────────────────────────────────────────────────
-    conn_group = ap.add_argument_group("Connectivity")
-    conn_group.add_argument("--conn_thr",
-                    type=float, default=0.3,
-                    help="Pearson correlation threshold for drawing a functional "
-                         "connectivity edge between two channels. Pairs with "
-                         "|r| >= this value are connected. (default: 0.3)")
-
-    # ── synchrony ──────────────────────────────────────────────────────────────
-    sync_group = ap.add_argument_group("Synchrony")
-    sync_group.add_argument("--sync_metrics",
-                    choices=["none", "core", "xcorr", "kreuz", "index", "all"],
-                    default="core",
-                    help="Which synchrony metrics to compute. 'core' reports the two "
-                         "that resolve on every manufacturer and discriminate best "
-                         "between recordings: area under the normalised "
-                         "cross-correlation, and the Synchrony Index. 'xcorr' adds "
-                         "the raw area and both full-width-at-half-height values; "
-                         "'kreuz' = 1 - Kreuz SPIKE-distance; 'index' = Synchrony "
-                         "Index alone; 'all' = everything, mirroring the Axion "
-                         "Neural Metric Tool. Note 'kreuz' and 'index' are O(N^2) in "
-                         "channels and much slower than the correlogram. "
-                         "(default: core)")
-    sync_group.add_argument("--sync_window",
-                    type=float, default=20.0,
-                    help="Synchrony window in MILLISECONDS: the window around zero "
-                         "lag used to compute the area under the cross-correlation. "
-                         "A short window (5) emphasises synchrony on a millisecond "
-                         "timescale; a long window (100) captures slow timescales. "
-                         "(default: 20.0)")
-    sync_group.add_argument("--sync_bin",
-                    type=float, default=1.0,
-                    help="Cross-correlogram bin width in MILLISECONDS. This is an "
-                         "absolute duration and is deliberately NOT inferred from "
-                         "the sampling rate, so that synchrony values are "
-                         "comparable across manufacturers. (default: 1.0)")
-    sync_group.add_argument("--sync_max_lag",
-                    type=float, default=500.0,
-                    help="Maximum lag of the cross-correlogram in MILLISECONDS. "
-                         "Must be wide enough to contain the correlogram peak, or "
-                         "the full width at half height cannot be measured. "
-                         "(default: 500.0)")
-    sync_group.add_argument("--sync_sigma",
-                    type=float, default=None,
-                    help="Gaussian timescale sigma in MILLISECONDS for the "
-                         "Synchrony Index. Small relative to the mean ISI measures "
-                         "spike-timing coincidence; large approaches a firing-rate "
-                         "comparison. (default: same as --sync_window)")
-    sync_group.add_argument("--sync_max_channels",
-                    type=int, default=64,
-                    help="Cap on the number of channels used for the O(N^2) "
-                         "measures (--sync_metrics kreuz/index/all). Channels are "
-                         "subsampled with a fixed seed, and the output records that "
-                         "subsampling occurred. 0 = no cap. (default: 64)")
-
-    # ── entropy and active area ────────────────────────────────────────────────
-    ea_group = ap.add_argument_group("Entropy and Active Area")
-    ea_group.add_argument("--entropy_win",
-                    type=float, default=10.0,
-                    help="Window size in seconds for computing spatial entropy "
-                         "and active electrode fraction over time. (default: 10.0)")
-
-    # ── epoch comparison ───────────────────────────────────────────────────────
-    ep_group = ap.add_argument_group("Epoch Comparison (optional)")
-    ep_group.add_argument("--epochA",
-                    default=None,
-                    help="First epoch window as 'start,duration' in seconds. "
-                         "Example: --epochA 0,60 for the first 60 seconds.")
-    ep_group.add_argument("--epochB",
-                    default=None,
-                    help="Second epoch window as 'start,duration' in seconds. "
-                         "Example: --epochB 120,60 for 60 seconds starting at 2 min. "
-                         "Both --epochA and --epochB must be set to compare.")
+    g = ap.add_argument_group("5 Misc — information (no analysis)")
+    g.add_argument("-h", "--help", action="help",
+                    help="Show this help message and exit.")
+    g.add_argument("--version", action="version", version=f"CASCADE v{__version__}",
+                    help="Show the CASCADE version and exit.")
+    add_citation_argument(g)
+    g.add_argument("--test", action="store_true",
+                    help="Run the built-in self-test with synthetic data. "
+                         "No recording file required.")
 
     args = ap.parse_args()
 

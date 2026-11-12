@@ -222,27 +222,34 @@ def main():
             "                   --output ltpltd_results/"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
     )
 
-    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
-    add_citation_argument(ap)
+    # Flags are grouped by workflow step (same order as README "All flags").
 
-    ap.add_argument("--baseline",
+    g = ap.add_argument_group("1 Setup — input / output")
+    g.add_argument("--baseline",
                     required=True,
                     metavar="TSV",
                     help="Path to the rates_*.tsv from the BASELINE CASCADE run. "
                          "This is the reference against which all MEASURE files "
                          "are compared.")
-
-    ap.add_argument("--measure",
+    g.add_argument("--measure",
                     required=True,
                     nargs="+",
                     metavar="TSV",
                     help="Path(s) to one or more rates_*.tsv files to compare "
                          "against the baseline. Separate multiple paths with "
                          "spaces.")
+    g.add_argument("--output",
+                    default="ltpltd_out",
+                    metavar="DIR",
+                    help="Output folder for TSV results and figures. "
+                         "Created automatically if it does not exist. "
+                         "(default: ltpltd_out)")
 
-    ap.add_argument("--threshold",
+    g = ap.add_argument_group("3 Analysis — LTP/LTD classification")
+    g.add_argument("--threshold",
                     type=float,
                     default=20.0,
                     metavar="PCT",
@@ -250,23 +257,23 @@ def main():
                          "Electrodes with change >= +threshold are called LTP; "
                          "<= -threshold are called LTD. (default: 20)")
 
-    ap.add_argument("--output",
-                    default="ltpltd_out",
-                    metavar="DIR",
-                    help="Output folder for TSV results and figures. "
-                         "Created automatically if it does not exist. "
-                         "(default: ltpltd_out)")
-
-    ap.add_argument("--svg",
+    g = ap.add_argument_group("4 Output — figures and terminal")
+    g.add_argument("--svg",
                     action="store_true",
                     help="Also save figures as SVG.")
-    ap.add_argument("--jpg",
+    g.add_argument("--jpg",
                     action="store_true",
                     help="Also save figures as JPG (300 dpi).")
-
-    ap.add_argument("--verbose",
+    g.add_argument("--verbose",
                     action="store_true",
                     help="Print per-electrode table to terminal.")
+
+    g = ap.add_argument_group("5 Misc — information (no analysis)")
+    g.add_argument("-h", "--help", action="help",
+                    help="Show this help message and exit.")
+    g.add_argument("--version", action="version", version=f"CASCADE v{__version__}",
+                    help="Show the CASCADE version and exit.")
+    add_citation_argument(g)
 
     args = ap.parse_args()
 
