@@ -15,6 +15,8 @@ import datetime
 import numpy as np
 import pandas as pd
 
+from cascade import __version__
+
 
 def _strip_ansi(text: str) -> str:
     """Remove ANSI colour/style escape sequences from a string."""
@@ -193,6 +195,7 @@ def write_run_log(out_dir: str, cmd: str, status: str,
         "=" * 70,
         f"Timestamp  : {timestamp}",
         f"Command    : {cmd}",
+        f"CASCADE    : v{__version__}",
         f"Python     : {sys.version.split()[0]}",
         f"Platform   : {platform.platform()}",
         f"Working dir: {os.getcwd()}",

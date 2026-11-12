@@ -73,6 +73,8 @@ import numpy as np
 import pandas as pd
 
 # ── imports from this package ──────────────────────────────────────────────────
+from cascade import __version__
+from cascade.utils.citation import add_citation_argument
 from cascade.loaders.brainwave_loader import BrainwaveLoader
 from cascade.loaders.maxwell_loader   import MaxwellLoader
 from cascade.loaders.cl1_loader       import CL1Loader
@@ -187,7 +189,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.4")
+    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
+    add_citation_argument(ap)
     ap.add_argument("--test", action="store_true",
                     help="Run the built-in self-test with synthetic data. "
                          "No recording file required.")
@@ -488,7 +491,7 @@ def main():
     jpg = args.jpg
     v   = args.verbose
 
-    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.4", enabled=v)
+    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v" + __version__, enabled=v)
 
     # ── find file ──────────────────────────────────────────────────────────────
     path = args.input
@@ -922,6 +925,11 @@ def main():
 
 def _run_with_log():
     import io as _io
+
+    # info-only flags analyse nothing: don't create mea_out/cascade_run.log for them
+    if {"-h", "--help", "--version", "--citation"} & set(sys.argv[1:]):
+        main()
+        return
 
     _cmd = "cascade " + " ".join(sys.argv[1:])
     _buf = _io.StringIO()

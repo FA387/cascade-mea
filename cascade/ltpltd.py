@@ -39,6 +39,8 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+from cascade import __version__
+from cascade.utils.citation import add_citation_argument
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -222,7 +224,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.4")
+    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
+    add_citation_argument(ap)
 
     ap.add_argument("--baseline",
                     required=True,

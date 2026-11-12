@@ -9,6 +9,21 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `--citation`
+
+- `cascade`, `cascade-info` and `cascade-ltpltd` accept `--citation`: prints the
+  published article (Avila et al. 2026, *Bioinformatics* 42(8):btag570,
+  doi:10.1093/bioinformatics/btag570) as text and BibTeX, plus the running version.
+- `CITATION.cff` gains a `preferred-citation` block for the article.
+- `cascade_run.log` now records the CASCADE version that produced the results.
+
+### Fixed — version string had four hand-typed copies
+
+`--version` in all three tools and the run banner now read `cascade.__version__`
+instead of a hard-coded "v0.9.4", so they cannot drift at the next bump.
+`cascade --help`, `--version` and `--citation` no longer create
+`mea_out/cascade_run.log` in the current folder.
+
 ### Changed — `--legacy_powerlaw` renamed to `--simple_PL`
 
 Pairs with `--simple_BR`: each flag switches one metric back to the simpler v0.8.0

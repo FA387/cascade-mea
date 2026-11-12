@@ -50,6 +50,30 @@ authors:
       Human and Environmental Toxicology, University of Science and Technology (UST),
       Yuseong, Daejeon 34113, Republic of Korea
 
+preferred-citation:
+  type: article
+  title: "CASCADE: criticality avalanche spike cross-platform analysis detection engine, a multi-manufacturer MEA bash analysis pipeline"
+  authors:
+    - family-names: Avila
+      given-names: Forbes
+    - family-names: Kim
+      given-names: Jin
+    - family-names: Park
+      given-names: Jong-Chan
+    - family-names: Kang
+      given-names: Rian
+    - family-names: Lee
+      given-names: Hyunsu
+    - family-names: Park
+      given-names: Sun-Hyun
+  journal: Bioinformatics
+  year: 2026
+  volume: 42
+  issue: 8
+  start: btag570
+  doi: 10.1093/bioinformatics/btag570
+  url: "https://academic.oup.com/bioinformatics/article/42/8/btag570/8746882"
+
 abstract: >
   CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA)
   recordings from multiple manufacturers (3Brain, Maxwell Biosystems, Multi Channel

@@ -46,6 +46,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
+from cascade import __version__
+from cascade.utils.citation import add_citation_argument
 from cascade.loaders.brainwave_loader import BrainwaveLoader
 from cascade.loaders.maxwell_loader   import MaxwellLoader
 from cascade.loaders.cl1_loader       import CL1Loader
@@ -367,7 +369,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.4")
+    ap.add_argument("--version", action="version", version=f"CASCADE v{__version__}")
+    add_citation_argument(ap)
 
     ap.add_argument("--manufacturer",
                     required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion"],
