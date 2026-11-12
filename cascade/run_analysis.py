@@ -24,7 +24,7 @@ python run_analysis.py --input recording.h5 --manufacturer mcs --output results/
 # Axion spike-list CSV:
 python run_analysis.py --input recording_spike_list.csv --manufacturer axion --output results/
 
-# With active-electrode filter and Habibollahi threshold:
+# With active-electrode filter and 25th-percentile threshold:
 python run_analysis.py --input recording.bxr --manufacturer 3brain --ae 5 --perc 0.25 --output results/
 
 # With epoch comparison (pre vs post stimulation):
@@ -47,7 +47,8 @@ Flags
 --ava_size          minimum avalanche size in spikes (default: 2)
 --ava_dur           minimum avalanche duration in bins (default: 1 — no duration filter)
 --perc              percentile threshold for avalanche detection (default: 0.0 = off)
-                    0.0 = any spike counts; 0.25 = Habibollahi 2022 default
+                    0.0 = any spike counts; 0.25 = default of the Habibollahi et al. 2023
+                    reference code (their paper reports 40% of the median)
 --aval_dt           avalanche bin width in seconds (default: inferred from mean ISI)
 --burst_min_spikes  min spikes in a run to count as a network burst (default: 5)
 --burst_max_gap     max gap between consecutive spikes within a burst in seconds (default: 0.1)
@@ -291,7 +292,9 @@ def main():
                          "count must exceed this percentile of all bin counts to "
                          "be included in an avalanche. 0.0 = any spike counts "
                          "(recommended for clean in-vitro spike data). 0.25 = "
-                         "Habibollahi 2022 default for noisy recordings. (default: 0.0)")
+                         "default of the Habibollahi et al. 2023 reference code, "
+                         "for noisy recordings; their paper reports 40%% of the "
+                         "median instead. (default: 0.0)")
 
     # ── criticality metrics ────────────────────────────────────────────────────
     crit_group = ap.add_argument_group("Criticality Metrics")
@@ -309,8 +312,9 @@ def main():
                     action="store_true",
                     help="Normalise the power-law MLE over only the observed "
                          "avalanche values instead of every integer between the "
-                         "cut-offs. This reproduces CASCADE <= 0.9.0 and "
-                         "Habibollahi 2022 tplfit.py exactly, but the exponent is "
+                         "cut-offs. This reproduces CASCADE <= 0.9.0 exactly, "
+                         "using the normalisation of the reference tplfit.py, but "
+                         "the exponent is "
                          "biased (severely below ~1000 avalanches). Use ONLY to "
                          "reproduce previously published numbers, never for new "
                          "analyses. (default: off = correct normalisation)")
@@ -328,11 +332,13 @@ def main():
     crit_group.add_argument("--pl_exclude",
                     action="store_true",
                     help="Also trim the upper tail before fitting, with the "
-                         "EXCLUDE step of Habibollahi et al. 2022 (pre-cut at "
+                         "EXCLUDE step of the Habibollahi et al. 2023 Python "
+                         "reference code (AV_analysis_ExponentErrorComments.py; "
+                         "the MATLAB original differs) (pre-cut at "
                          "max^0.8, then drop the largest values until KS < "
                          "min(1/sqrt(n), 0.1)). --burst_min/--t_min act as their "
                          "bm/tm. Use it to compare with numbers from that "
-                         "pipeline; add --legacy_powerlaw to reproduce its code "
+                         "pipeline; add --legacy_powerlaw to reproduce that code "
                          "exactly. The trimming stops once the fit passes, so it "
                          "favours a power law by construction. The untrimmed fit "
                          "is still written to the report. Cannot be combined "

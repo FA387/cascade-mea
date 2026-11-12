@@ -5,7 +5,8 @@ Criticality metrics: power-law exponents, DCC, branching ratio, shape collapse.
 
 References
 ----------
-Habibollahi et al. (2022)  – tplfit MLE method, DCC definition
+Habibollahi et al. (2023)  – reference code: tplfit xmin search, EXCLUDE (opt-in);
+                             DCC definition
 Beggs & Plenz (2003)       – neuronal avalanche framework
 Wilting & Priesemann (2018)– branching ratio (multi-lag MR estimator)
 Sethna (2001), Friedman et al. (2012) – shape collapse
@@ -17,7 +18,7 @@ from scipy.optimize import fmin
 from .avalanche import avalanche_segments, counts_per_dt
 
 
-# ── Truncated power-law fit (Habibollahi 2022 method) ─────────────────────────
+# ── Truncated power-law fit (KS-minimising xmin search, reference tplfit) ─────
 def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False,
            xmin: int = None, clip_cdf: bool = True):
     """
@@ -36,7 +37,7 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
     NCC toolbox (Marshall et al. 2016).
 
     `legacy_normalization=True` sums only over the *observed unique* values,
-    reproducing `tplfit.py` / `tplfit.m` from Habibollahi et al. (2022) and
+    reproducing `tplfit.py` / `tplfit.m` from Habibollahi et al. (2023) and
     CASCADE <= 0.9.0. That convention makes the normalising constant depend on
     which values happen to appear in the sample, which biases the exponent
     (severely when avalanches are few) and leaves `A` inconsistent with the
@@ -47,7 +48,8 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
     ----------
     data  : 1-D array of positive integers (avalanche sizes or durations)
     limit : maximum xmin to try (search range: 1 … limit)
-            Recommended: 8–20 for sizes, 3–6 for durations (Habibollahi 2022)
+            Recommended: 8–20 for sizes, 3–6 for durations (CASCADE; the
+            reference example uses bm = 10, tm = 2)
     legacy_normalization : reproduce the biased pre-0.9.1 behaviour (see above)
     xmin  : fit at this lower cut-off only instead of searching 1 … limit
             (the `bm` floor of Habibollahi's EX_burst=0 path). Default: search.
@@ -91,7 +93,7 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
         n      = float(idx.size)
         # Support of the truncated distribution: every integer in [x0, xmax].
         # legacy_normalization restricts it to the observed values instead,
-        # which is what Habibollahi 2022 tplfit.py does — see the docstring.
+        # which is what the reference tplfit.py does — see the docstring.
         s = (np.unique(subset) if legacy_normalization
              else np.arange(x0, xmax + 1, dtype=np.float64))
 
@@ -129,11 +131,11 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
             float(loglike_list[best]) if not np.isnan(loglike_list[best]) else np.nan)
 
 
-# ── Upper-tail trimming (Habibollahi 2022 EXCLUDE, opt-in via --pl_exclude) ────
+# ── Upper-tail trimming (reference-code EXCLUDE, opt-in via --pl_exclude) ──
 def exclude_tail(data: np.ndarray, limit: int, legacy_normalization: bool = False,
                  num: float = 1.0):
     """
-    Port of `EXCLUDE.py` (Ma 2016, used by Habibollahi et al. 2022).
+    Port of `EXCLUDE.py` (Ma 2016; Habibollahi et al. 2023 reference code).
 
     Repeatedly fits tplfit(xmin search 1 … limit) and drops every copy of the
     current largest value until KS < min(num/sqrt(n), 0.1) or KS stops changing
@@ -212,9 +214,9 @@ def compute_exponents(sizes: np.ndarray,
     sizes     : 1-D array of avalanche sizes
     durations : 1-D array of avalanche durations (bins)
     burst_min : upper limit for xmin search in size distribution
-                (Habibollahi 2022 default: 12; try 8–20)
+                (CASCADE default: 12; reference example: 10; try 8–20)
     t_min     : upper limit for xmin search in duration distribution
-                (Habibollahi 2022 default: 4; try 3–6)
+                (CASCADE default: 4; reference example: 2; try 3–6)
     legacy_normalization : passed to tplfit(); reproduces the biased pre-0.9.1
                 exponents. See tplfit() for why you should not use it.
     xmin_s, xmin_d : fix the lower cut-off instead of searching for it
@@ -264,7 +266,8 @@ def compute_exponents(sizes: np.ndarray,
     if np.isfinite(tau) and np.isfinite(alpha) and (tau != 1.0):
         result["beta_pred"] = (alpha - 1.0) / (tau - 1.0)
 
-    # β_fit from <S>(T) ~ T^β  — fit range [xmin_d, xmin_d + 60] (Habibollahi 2022)
+    # β_fit from <S>(T) ~ T^β  — fit range xmin_d < D < xmin_d + 60 (Python reference;
+    # the MATLAB original uses + 30)
     beta_fit = _compute_beta_fit(sizes, durations, xmin_d if np.isfinite(xmin_d) else 1)
     result["beta_fit"] = beta_fit
 
@@ -280,7 +283,8 @@ def _compute_beta_fit(sizes: np.ndarray,
     """
     Empirical scaling exponent β from  <S>(T) ~ T^β.
 
-    Fit range is restricted to [t_min, t_min+60] following Habibollahi 2022.
+    Fit range is t_min < D < t_min + 60, strict at both ends, as in the Python
+    reference code (the MATLAB original uses t_min + 30).
     """
     TT  = np.arange(1, int(durations.max()) + 1)
     Sm  = np.array([
@@ -295,7 +299,7 @@ def _compute_beta_fit(sizes: np.ndarray,
     TT = TT[loc]
     Sm = Sm[loc]
 
-    # Habibollahi 2022: restrict fit to [tMin, tMin+60]
+    # reference code: restrict fit to tMin < D < tMin + 60
     fit_mask = (TT > int(t_min)) & (TT < int(t_min) + 60)
     if np.sum(fit_mask) < 2:
         # fall back to all available points if range is too narrow

@@ -7,6 +7,35 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Fixed — method attribution wording (no numerical change)
+
+The report, CLI help and docstrings said "Habibollahi 2022 method/default" where
+CASCADE actually follows the Habibollahi et al. reference **code**, which differs from
+their published paper in places. Wording only: every number, default, flag and
+output file is unchanged. The one visible change in outputs is the power-law header
+line of `criticality_report_<well>.txt`.
+
+- Report header: "truncated MLE, Habibollahi 2022 method" → "discrete truncated
+  power-law MLE, xmin by KS minimisation".
+- `--perc 0.25` is the default of the reference code (`AV_analysis_BurstT`); the
+  paper reports a threshold of 40 % of the median.
+- `--burst_min 12` / `--t_min 4` are CASCADE's defaults; the reference example uses
+  bm = 10, tm = 2.
+- β_fit range is t_min < D < t_min + 60, strict at both ends (Python reference; the
+  MATLAB original uses + 30), not `[t_min, t_min + 60]`.
+- `--legacy_powerlaw` reproduces CASCADE ≤ 0.9.0 exactly, with the normalisation of
+  the reference `tplfit.py`. It does not reproduce `tplfit.py` exactly, because
+  CASCADE clips the fitted CDF to [0, 1] and the reference does not.
+- `--pl_exclude` reproduces the **Python** reference
+  (`AV_analysis_ExponentErrorComments.py`); the MATLAB original differs (final fit
+  with `plmle`, no duration pre-cut).
+- Citation year 2022 → 2023 (Nat. Commun. 14:5287), matching the README and the
+  CASCADE paper.
+
+---
+
 ## [0.9.4] — 2026-11-12
 
 Replaces the branching ratio with the estimator the CASCADE paper cites. **BR values

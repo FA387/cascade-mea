@@ -3,7 +3,8 @@ core/avalanche.py
 -----------------
 Neuronal avalanche detection.
 
-Method follows Habibollahi et al. (2022) / Beggs & Plenz (2003):
+Threshold and size definition follow the reference code AV_analysis_BurstT
+(Habibollahi et al. 2023 code) / Beggs & Plenz (2003):
   1. Bin population spike counts with bin width Δt.
   2. Apply a percentile threshold to the population activity.
   3. An avalanche = run of consecutive bins ABOVE the threshold.
@@ -20,7 +21,8 @@ dt   : bin width in seconds.
 perc : percentile threshold applied to the distribution of bin counts.
        0.0  → threshold = 0, i.e. any non-empty bin contributes
               (appropriate for clean in-vitro MEA spike data).
-       0.25 → threshold = 25th percentile (Habibollahi 2022 default,
+       0.25 → threshold = 25th percentile (reference-code default; the
+              Habibollahi et al. 2023 paper uses 40 % of the median;
               useful when there is a non-zero background firing rate).
 """
 
@@ -108,7 +110,7 @@ def compute_avalanches(all_spike_times: np.ndarray,
     dt              : bin width in seconds
     perc            : percentile threshold (0.0 = no threshold)
                       Use 0.0 for clean sorted-spike MEA data.
-                      Use 0.25 to match Habibollahi 2022 default.
+                      Use 0.25 to match the reference-code default.
 
     Returns
     -------
@@ -138,7 +140,7 @@ def compute_avalanches(all_spike_times: np.ndarray,
         # size = total spikes above the threshold baseline
         raw = float(np.sum(counts[start:end]))
         dur = int(end - start)
-        # subtract threshold contribution following Habibollahi / Poil 2012:
+        # subtract threshold contribution as the reference code does (Poil 2012):
         # size = raw - threshold * (duration - 1)
         # Reference: AV_analysis_BurstT.py line 71
         #   fired = sum(activity) - threshold2*(J[i+1]-J[i]-2)

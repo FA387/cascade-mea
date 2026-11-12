@@ -192,7 +192,7 @@ def _test_powerlaw_normalization():
     """
     The power-law MLE must recover a known exponent from data drawn out of a
     discrete truncated power law. This is a regression guard for the
-    normalisation bug present in CASCADE <= 0.9.0 (and in Habibollahi 2022
+    normalisation bug present in CASCADE <= 0.9.0 (and in the Habibollahi et al. 2023 reference
     tplfit.py), where the normalising sum ran over only the observed unique
     values and biased the exponent downward at low avalanche counts.
     """

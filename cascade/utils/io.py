@@ -102,14 +102,14 @@ def write_criticality_report(metrics: dict, out_path: str):
     lines.append(f"Population perc thresh : {metrics.get('perc', 0.0)*100:.1f}%"
                  "  (0 % = off, use raw spike counts)")
     lines.append("")
-    lines.append("Power-law exponents  (truncated MLE, Habibollahi 2022 method)")
+    lines.append("Power-law exponents  (discrete truncated power-law MLE, xmin by KS minimisation)")
     lines.append(f"  tau   (size exponent)     : {metrics.get('tau',   float('nan')):.6f}"
                  f"   xmin_S = {metrics.get('xmin_s', 'n/a')}")
     lines.append(f"  alpha (duration exponent) : {metrics.get('alpha', float('nan')):.6f}"
                  f"   xmin_D = {metrics.get('xmin_d', 'n/a')}")
     if metrics.get("xmax_s") is not None:
         n_tot = metrics.get("n_total")
-        lines.append(f"  ** UPPER TAIL TRIMMED (--pl_exclude, Habibollahi 2022 EXCLUDE)")
+        lines.append(f"  ** UPPER TAIL TRIMMED (--pl_exclude, EXCLUDE from the Habibollahi et al. 2023 reference code)")
         lines.append(f"     size fit range     : [{metrics.get('xmin_s')}, {metrics['xmax_s']:g}]"
                      f"   {metrics.get('n_fit_s')}/{n_tot} avalanches used")
         lines.append(f"     duration fit range : [{metrics.get('xmin_d')}, {metrics['xmax_d']:g}]"
@@ -124,7 +124,7 @@ def write_criticality_report(metrics: dict, out_path: str):
                      f"   alpha = {auto.get('alpha', float('nan')):.6f} (xmin_D = {auto.get('xmin_d')})"
                      f"   DCC = {auto.get('dcc', float('nan')):.6f}")
     lines.append("")
-    lines.append("Scaling relation + DCC  (Beggs & Plenz 2003 / Habibollahi 2022)")
+    lines.append("Scaling relation + DCC  (Beggs & Plenz 2003 / Habibollahi et al. 2023)")
     lines.append(f"  beta_pred = (alpha-1)/(tau-1) : {metrics.get('beta_pred', float('nan')):.6f}")
     lines.append(f"  beta_fit  from <S>(T) ~ T^beta : {metrics.get('beta_fit',  float('nan')):.6f}")
     lines.append(f"  DCC = |beta_pred - beta_fit|   : {metrics.get('dcc',       float('nan')):.6f}")
