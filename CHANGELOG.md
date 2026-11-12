@@ -13,6 +13,23 @@ Adds spike-timing synchrony analysis. No existing metric changes: every output
 produced by v0.9.1 is unaffected, and the new metrics are written to their own
 files.
 
+### Fixed — `--pl_xmin_S` / `--pl_xmin_D` now fix the fit, not just the plot
+
+Since v0.8.0 these flags only moved where the log-log fit line started; τ, α,
+β_pred, DCC and SCE still came from the automatically selected xmin, although the
+help text said "override the xmin for the fit". The plot could therefore draw a τ
+fitted from one xmin starting at another. The flags now fix the lower cut-off of
+the fit itself (`tplfit(..., xmin=k)`, the `bm` floor of Habibollahi's
+`EX_burst=0` path), and every downstream value and the plot use it.
+
+A hand-picked xmin is a free parameter, and near τ ≈ 1 it moves DCC a lot (3Brain
+sample: DCC ≈ 1.0 at xmin_S = 2 vs 11.1 at the automatic 4). So the automatic fit is
+always computed too, printed as a `[WARN]` and written to the criticality report
+beside the manual one. Runs without the flags are unchanged byte-for-byte. Runs that
+passed them before now get different τ/α/DCC/SCE. The flags now take integers.
+Self-test: the power-law test also asserts that a fixed xmin reproduces the search's
+fit at that xmin exactly.
+
 ### Added — synchrony metrics (new `core/synchrony.py`)
 
 The synchrony metric set of the Axion Neural Metric Tool, applied uniformly to

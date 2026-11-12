@@ -18,7 +18,8 @@ from .avalanche import avalanche_segments, counts_per_dt
 
 
 # ── Truncated power-law fit (Habibollahi 2022 method) ─────────────────────────
-def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False):
+def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False,
+           xmin: int = None):
     """
     Fit a truncated power-law by finding the xmin that minimises the
     Kolmogorov–Smirnov (KS) statistic between the empirical CDF and the
@@ -48,6 +49,8 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
     limit : maximum xmin to try (search range: 1 … limit)
             Recommended: 8–20 for sizes, 3–6 for durations (Habibollahi 2022)
     legacy_normalization : reproduce the biased pre-0.9.1 behaviour (see above)
+    xmin  : fit at this lower cut-off only instead of searching 1 … limit
+            (the `bm` floor of Habibollahi's EX_burst=0 path). Default: search.
 
     Returns
     -------
@@ -63,11 +66,15 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
 
     xmax = int(data.max())
 
+    if xmin is not None and int(xmin) < 1:
+        raise ValueError(f"xmin must be >= 1, got {xmin}")
+    candidates = [int(xmin)] if xmin is not None else list(range(1, int(limit) + 1))
+
     KS_list      = []
     alpha_list   = []
     loglike_list = []
 
-    for x0 in range(1, int(limit) + 1):
+    for x0 in candidates:
         idx = np.where((data >= x0) & (data <= xmax))[0]
         if idx.size < 3:
             KS_list.append(np.inf)
@@ -109,7 +116,7 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
         KS_list.append(float(np.max(np.abs(cdf_emp - fit_cdf))))
 
     best     = int(np.argmin(KS_list))
-    xmin_out = best + 1
+    xmin_out = candidates[best]
     return (float(alpha_list[best]) if not np.isnan(alpha_list[best]) else np.nan,
             int(xmin_out),
             float(KS_list[best]),
@@ -121,7 +128,9 @@ def compute_exponents(sizes: np.ndarray,
                       durations: np.ndarray,
                       burst_min: int = 12,
                       t_min: int = 4,
-                      legacy_normalization: bool = False) -> dict:
+                      legacy_normalization: bool = False,
+                      xmin_s: int = None,
+                      xmin_d: int = None) -> dict:
     """
     Fit power-law exponents for size (τ) and duration (α), then compute
     the predicted scaling exponent β_pred and DCC.
@@ -136,6 +145,8 @@ def compute_exponents(sizes: np.ndarray,
                 (Habibollahi 2022 default: 4; try 3–6)
     legacy_normalization : passed to tplfit(); reproduces the biased pre-0.9.1
                 exponents. See tplfit() for why you should not use it.
+    xmin_s, xmin_d : fix the lower cut-off instead of searching for it
+                (--pl_xmin_S / --pl_xmin_D). Default None = automatic.
 
     Returns
     -------
@@ -149,13 +160,15 @@ def compute_exponents(sizes: np.ndarray,
 
     # τ – size exponent
     tau, xmin_s, _, _ = tplfit(sizes, limit=burst_min,
-                               legacy_normalization=legacy_normalization)
+                               legacy_normalization=legacy_normalization,
+                               xmin=xmin_s)
     result["tau"]    = tau
     result["xmin_s"] = xmin_s
 
     # α – duration exponent
     alpha, xmin_d, _, _ = tplfit(durations, limit=t_min,
-                                 legacy_normalization=legacy_normalization)
+                                 legacy_normalization=legacy_normalization,
+                                 xmin=xmin_d)
     result["alpha"]  = alpha
     result["xmin_d"] = xmin_d
 

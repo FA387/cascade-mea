@@ -314,14 +314,16 @@ def main():
                          "reproduce previously published numbers, never for new "
                          "analyses. (default: off = correct normalisation)")
     crit_group.add_argument("--pl_xmin_S",
-                    type=float, default=None,
-                    help="Manually override the xmin for the size power-law fit. "
-                         "Default: auto-detected. Use this if the automatic result "
-                         "looks wrong on your data.")
+                    type=int, default=None,
+                    help="Fix the lower cut-off (xmin) of the size power-law fit "
+                         "instead of searching for it. tau, beta_pred, DCC, SCE "
+                         "and the log-log plot all use it; the automatic fit is "
+                         "still written to the report for comparison. "
+                         "Default: auto-detected (recommended).")
     crit_group.add_argument("--pl_xmin_D",
-                    type=float, default=None,
-                    help="Manually override the xmin for the duration power-law "
-                         "fit. Default: auto-detected.")
+                    type=int, default=None,
+                    help="Fix the lower cut-off (xmin) of the duration power-law "
+                         "fit instead of searching for it. Default: auto-detected.")
     crit_group.add_argument("--skip_rare_sizes",
                     action="store_true",
                     help="On the size log-log plot, exclude avalanche sizes that "
@@ -722,12 +724,26 @@ def main():
                                     burst_min=args.burst_min,
                                     t_min=args.t_min,
                                     legacy_normalization=args.legacy_powerlaw)
+    auto_metrics = None
+    if args.pl_xmin_S is not None or args.pl_xmin_D is not None:
+        # Keep the automatic fit so a hand-picked xmin is always reported next to it.
+        auto_metrics = exp_metrics
+        exp_metrics = compute_exponents(sizes, durations,
+                                        burst_min=args.burst_min,
+                                        t_min=args.t_min,
+                                        legacy_normalization=args.legacy_powerlaw,
+                                        xmin_s=args.pl_xmin_S,
+                                        xmin_d=args.pl_xmin_D)
+        say(f"xmin set manually (--pl_xmin_S={args.pl_xmin_S}, --pl_xmin_D={args.pl_xmin_D}): "
+            f"tau/alpha/DCC/SCE use it. Automatic fit: tau={auto_metrics['tau']:.4f} "
+            f"(xmin_S={auto_metrics['xmin_s']}), alpha={auto_metrics['alpha']:.4f} "
+            f"(xmin_D={auto_metrics['xmin_d']}), DCC={auto_metrics['dcc']:.4f}",
+            "[WARN]", YEL, enabled=True)
 
     # log–log plots with fitted lines
-    # --pl_xmin_S/D override the auto-detected xmin for the visual fit line
     # --skip_rare_sizes/durations excludes single-occurrence points from the OLS line
-    xmin_s = args.pl_xmin_S if args.pl_xmin_S is not None else exp_metrics.get("xmin_s")
-    xmin_d = args.pl_xmin_D if args.pl_xmin_D is not None else exp_metrics.get("xmin_d")
+    xmin_s = exp_metrics.get("xmin_s")
+    xmin_d = exp_metrics.get("xmin_d")
 
     plot_loglog_linearization(
         sizes,
@@ -777,6 +793,7 @@ def main():
         sc_beta      = sc_beta,
         sce          = sce,
         sc_minerr    = sc_minerr,
+        auto_fit     = auto_metrics,
     )
     write_criticality_report(crit_metrics,
                              f"{args.output}/criticality_report_{well_label}.txt")
@@ -831,8 +848,10 @@ def _run_with_log():
     _error  = None
     try:
         main()
-    except SystemExit:
-        _status = "FAILED"
+    except SystemExit as exc:
+        # sys.exit(0) / sys.exit() (--test pass, --help) is a clean exit, not a failure
+        if exc.code not in (0, None):
+            _status = "FAILED"
         raise
     except Exception as exc:
         _status = "FAILED"

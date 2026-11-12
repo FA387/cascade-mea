@@ -222,6 +222,13 @@ def _test_powerlaw_normalization():
         f"legacy_normalization no longer reproduces the old bias "
         f"(mean error {mean_legacy:+.4f}, expected < -0.10)")
 
+    # a fixed xmin (--pl_xmin_S) must give exactly the search's fit at that xmin
+    for leg in (False, True):
+        a_auto, x_auto, ks_auto, _ = tplfit(data, limit=12, legacy_normalization=leg)
+        a_fix, x_fix, ks_fix, _ = tplfit(data, legacy_normalization=leg, xmin=x_auto)
+        assert (x_fix, a_fix, ks_fix) == (x_auto, a_auto, ks_auto), (
+            f"fixed xmin={x_auto} disagrees with the search (legacy={leg})")
+
 
 def _test_synchrony(rec: MEARecording):
     """

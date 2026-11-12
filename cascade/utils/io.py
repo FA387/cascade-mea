@@ -81,6 +81,8 @@ def write_criticality_report(metrics: dict, out_path: str):
     sc_beta     : float – shape-collapse optimal beta
     sce         : float – |sc_beta - beta_pred|
     sc_minerr   : float – minimum shape-collapse variance metric
+    auto_fit    : dict  – optional; the automatic-xmin fit, present only when
+                          --pl_xmin_S/D fixed xmin by hand
     """
     lines = []
     w = metrics.get("well", "unknown")
@@ -98,6 +100,12 @@ def write_criticality_report(metrics: dict, out_path: str):
                  f"   xmin_S = {metrics.get('xmin_s', 'n/a')}")
     lines.append(f"  alpha (duration exponent) : {metrics.get('alpha', float('nan')):.6f}"
                  f"   xmin_D = {metrics.get('xmin_d', 'n/a')}")
+    auto = metrics.get("auto_fit")
+    if auto:
+        lines.append("  ** xmin SET MANUALLY (--pl_xmin_S/--pl_xmin_D). Automatic fit for comparison:")
+        lines.append(f"     tau = {auto.get('tau', float('nan')):.6f} (xmin_S = {auto.get('xmin_s')})"
+                     f"   alpha = {auto.get('alpha', float('nan')):.6f} (xmin_D = {auto.get('xmin_d')})"
+                     f"   DCC = {auto.get('dcc', float('nan')):.6f}")
     lines.append("")
     lines.append("Scaling relation + DCC  (Beggs & Plenz 2003 / Habibollahi 2022)")
     lines.append(f"  beta_pred = (alpha-1)/(tau-1) : {metrics.get('beta_pred', float('nan')):.6f}")

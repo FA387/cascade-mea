@@ -362,8 +362,8 @@ ltpltd_out/
 | `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
 | `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
 | `--legacy_powerlaw` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
-| `--pl_xmin_S` | auto | Manual xmin override (size fit) |
-| `--pl_xmin_D` | auto | Manual xmin override (duration fit) |
+| `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
+| `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
 | `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
 | `--skip_rare_durations` | off | Exclude singletons from log-log fit (does not affect MLE) |
 
