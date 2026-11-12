@@ -222,7 +222,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.2")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.3")
 
     ap.add_argument("--baseline",
                     required=True,

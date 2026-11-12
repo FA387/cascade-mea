@@ -1,4 +1,4 @@
-"""CASCADE manufacturer loaders - v0.9.2"""
+"""CASCADE manufacturer loaders - v0.9.3"""
 from .brainwave_loader import BrainwaveLoader
 from .maxwell_loader   import MaxwellLoader
 from .cl1_loader       import CL1Loader

@@ -7,6 +7,36 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.9.3] — 2026-11-12
+
+Adds Habibollahi's upper-tail trimming as an opt-in flag. No default output changes: without `--pl_exclude`, every output is identical to v0.9.2.
+
+### Added — `--pl_exclude`: Habibollahi's upper-tail trimming, opt-in
+
+CASCADE has always copied only the xmin search of Habibollahi et al. (2022)
+(`tplfit`), fitting up to the largest avalanche. Their pipeline first trims the
+upper tail with `EXCLUDE()`: pre-cut at max^0.8, then drop the largest value until
+KS < min(1/√n, 0.1), cap duration xmax at max^0.9 when it ends below 40, and fit
+on [xmin, xmax]. `--pl_exclude` adds that step. Off by default; nothing changes
+without it.
+
+With `--legacy_powerlaw` it reproduces their code exactly: τ, α, both fit ranges,
+β_pred, β_fit and DCC match `AV_analysis_ExponentErrorComments` to 0.0 on all five
+sample recordings, at bm/tm = 12/4 and 20/3. That needed `tplfit(clip_cdf=False)`:
+CASCADE has clipped the fitted CDF to [0, 1] since 0.8.0, but the legacy CDF can
+exceed 1 and the reference does not clip, so KS and the trimming point differed
+(MCS stopped at 180 instead of 132). Clipping stays the default, so 0.8.0 output
+is still reproduced byte-for-byte.
+
+Caveat, stated in the help text too: the stopping rule chases KS, so the trimmed
+range passes the fit by construction and can shrink to very few values (3Brain
+durations [4, 6], 38 of 447 avalanches). It moves DCC in both directions on the
+samples (3Brain 8.61 → 0.35, MaxWell 4.54 → 21.99). The untrimmed fit is always
+written to the report, with the fit ranges and avalanches used. Cannot be combined
+with `--pl_xmin_S/D`.
+
+---
+
 ## [0.9.2] — unreleased
 
 Adds spike-timing synchrony analysis. No existing metric changes: every output
@@ -29,6 +59,12 @@ beside the manual one. Runs without the flags are unchanged byte-for-byte. Runs 
 passed them before now get different τ/α/DCC/SCE. The flags now take integers.
 Self-test: the power-law test also asserts that a fixed xmin reproduces the search's
 fit at that xmin exactly.
+
+### Fixed — run log said `FAILED` after a clean exit
+
+`cascade --test` and `--help` end with `sys.exit(0)`, which `_run_with_log` counted
+as a failure, so `cascade_run.log` read `Result: FAILED` under "All 13 tests
+passed". Exit code 0 / None is now logged as `SUCCESS`.
 
 ### Added — synchrony metrics (new `core/synchrony.py`)
 
@@ -392,6 +428,7 @@ filtering, burst detection, avalanche detection, criticality metrics
 (τ, α, DCC, branching ratio, shape collapse), functional connectivity, spatial
 entropy, epoch comparison and LTP/LTD classification.
 
+[0.9.3]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.3
 [0.9.2]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.2
 [0.9.1]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.1
 [0.9.0]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.0

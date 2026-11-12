@@ -185,7 +185,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.2")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.3")
     ap.add_argument("--test", action="store_true",
                     help="Run the built-in self-test with synthetic data. "
                          "No recording file required.")
@@ -324,6 +324,18 @@ def main():
                     type=int, default=None,
                     help="Fix the lower cut-off (xmin) of the duration power-law "
                          "fit instead of searching for it. Default: auto-detected.")
+    crit_group.add_argument("--pl_exclude",
+                    action="store_true",
+                    help="Also trim the upper tail before fitting, with the "
+                         "EXCLUDE step of Habibollahi et al. 2022 (pre-cut at "
+                         "max^0.8, then drop the largest values until KS < "
+                         "min(1/sqrt(n), 0.1)). --burst_min/--t_min act as their "
+                         "bm/tm. Use it to compare with numbers from that "
+                         "pipeline; add --legacy_powerlaw to reproduce its code "
+                         "exactly. The trimming stops once the fit passes, so it "
+                         "favours a power law by construction. The untrimmed fit "
+                         "is still written to the report. Cannot be combined "
+                         "with --pl_xmin_S/D. (default: off)")
     crit_group.add_argument("--skip_rare_sizes",
                     action="store_true",
                     help="On the size log-log plot, exclude avalanche sizes that "
@@ -443,12 +455,14 @@ def main():
 
     if args.manufacturer is None:
         ap.error("--manufacturer is required. Choose from: 3brain, maxwell, cl, mcs, axion")
+    if args.pl_exclude and (args.pl_xmin_S is not None or args.pl_xmin_D is not None):
+        ap.error("--pl_exclude chooses xmin itself; it cannot be combined with --pl_xmin_S/--pl_xmin_D")
 
     svg = args.svg
     jpg = args.jpg
     v   = args.verbose
 
-    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.2", enabled=v)
+    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.3", enabled=v)
 
     # ── find file ──────────────────────────────────────────────────────────────
     path = args.input
@@ -725,7 +739,26 @@ def main():
                                     t_min=args.t_min,
                                     legacy_normalization=args.legacy_powerlaw)
     auto_metrics = None
-    if args.pl_xmin_S is not None or args.pl_xmin_D is not None:
+    if args.pl_exclude:
+        # Keep the untrimmed fit so the effect of trimming is always visible.
+        auto_metrics = exp_metrics
+        exp_metrics = compute_exponents(sizes, durations,
+                                        burst_min=args.burst_min,
+                                        t_min=args.t_min,
+                                        legacy_normalization=args.legacy_powerlaw,
+                                        exclude=True)
+        if exp_metrics.get("n_fit_s") is not None:
+            n_tot = exp_metrics["n_total"]
+            say(f"--pl_exclude: size fit on [{exp_metrics['xmin_s']}, {exp_metrics['xmax_s']:g}] "
+                f"({exp_metrics['n_fit_s']}/{n_tot} avalanches), duration fit on "
+                f"[{exp_metrics['xmin_d']}, {exp_metrics['xmax_d']:g}] "
+                f"({exp_metrics['n_fit_d']}/{n_tot}). Untrimmed fit: "
+                f"tau={auto_metrics['tau']:.4f}, alpha={auto_metrics['alpha']:.4f}, "
+                f"DCC={auto_metrics['dcc']:.4f}", "[WARN]", YEL, enabled=True)
+            if exp_metrics["fallback_s"] or exp_metrics["fallback_d"]:
+                say("--pl_exclude: trimming emptied the data; used the reference "
+                    "fallback range [bm, max^0.8) instead.", "[WARN]", YEL, enabled=True)
+    elif args.pl_xmin_S is not None or args.pl_xmin_D is not None:
         # Keep the automatic fit so a hand-picked xmin is always reported next to it.
         auto_metrics = exp_metrics
         exp_metrics = compute_exponents(sizes, durations,
@@ -794,6 +827,12 @@ def main():
         sce          = sce,
         sc_minerr    = sc_minerr,
         auto_fit     = auto_metrics,
+        auto_fit_why = "exclude" if args.pl_exclude else "xmin",
+        xmax_s       = exp_metrics.get("xmax_s"),
+        xmax_d       = exp_metrics.get("xmax_d"),
+        n_fit_s      = exp_metrics.get("n_fit_s"),
+        n_fit_d      = exp_metrics.get("n_fit_d"),
+        n_total      = exp_metrics.get("n_total"),
     )
     write_criticality_report(crit_metrics,
                              f"{args.output}/criticality_report_{well_label}.txt")

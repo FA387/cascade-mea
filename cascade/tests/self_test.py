@@ -229,6 +229,20 @@ def _test_powerlaw_normalization():
         assert (x_fix, a_fix, ks_fix) == (x_auto, a_auto, ks_auto), (
             f"fixed xmin={x_auto} disagrees with the search (legacy={leg})")
 
+    # clip_cdf only matters for the legacy CDF, which can exceed 1
+    assert tplfit(data, limit=12, clip_cdf=False)[:2] == tplfit(data, limit=12)[:2], (
+        "clip_cdf changed the corrected-normalisation fit")
+
+    # --pl_exclude: fits inside the data range, and survives a tiny sample
+    from cascade.core.criticality import compute_exponents
+    durs = np.clip(np.round(np.sqrt(data)), 1, None)
+    for leg in (False, True):
+        m = compute_exponents(data, durs, legacy_normalization=leg, exclude=True)
+        assert np.isfinite(m["tau"]) and 1 <= m["xmin_s"] <= m["xmax_s"] <= data.max(), (
+            f"--pl_exclude size range invalid (legacy={leg}): {m}")
+        assert 0 < m["n_fit_s"] <= data.size
+    compute_exponents(data[:8], durs[:8], exclude=True)
+
 
 def _test_synchrony(rec: MEARecording):
     """

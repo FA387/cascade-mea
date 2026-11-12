@@ -19,7 +19,7 @@ from .avalanche import avalanche_segments, counts_per_dt
 
 # ── Truncated power-law fit (Habibollahi 2022 method) ─────────────────────────
 def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False,
-           xmin: int = None):
+           xmin: int = None, clip_cdf: bool = True):
     """
     Fit a truncated power-law by finding the xmin that minimises the
     Kolmogorov–Smirnov (KS) statistic between the empirical CDF and the
@@ -51,6 +51,11 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
     legacy_normalization : reproduce the biased pre-0.9.1 behaviour (see above)
     xmin  : fit at this lower cut-off only instead of searching 1 … limit
             (the `bm` floor of Habibollahi's EX_burst=0 path). Default: search.
+    clip_cdf : clip the fitted CDF to [0, 1] before the KS (CASCADE since 0.8.0).
+            With legacy normalisation the fitted CDF can exceed 1; Habibollahi's
+            tplfit.py does not clip, so KS and xmin can differ. The --pl_exclude
+            path passes False to reproduce the reference. A no-op with the
+            corrected normalisation, whose CDF never exceeds 1.
 
     Returns
     -------
@@ -112,7 +117,8 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
         A       = 1.0 / np.sum(np.power(s, -a))
         fit_cdf = np.cumsum(A * np.power(np.arange(x0, xmax + 1, dtype=np.float64), -a))
         # clip fit_cdf to [0,1] to handle floating-point edge cases
-        fit_cdf = np.clip(fit_cdf, 0.0, 1.0)
+        if clip_cdf:
+            fit_cdf = np.clip(fit_cdf, 0.0, 1.0)
         KS_list.append(float(np.max(np.abs(cdf_emp - fit_cdf))))
 
     best     = int(np.argmin(KS_list))
@@ -123,6 +129,71 @@ def tplfit(data: np.ndarray, limit: int = 20, legacy_normalization: bool = False
             float(loglike_list[best]) if not np.isnan(loglike_list[best]) else np.nan)
 
 
+# ── Upper-tail trimming (Habibollahi 2022 EXCLUDE, opt-in via --pl_exclude) ────
+def exclude_tail(data: np.ndarray, limit: int, legacy_normalization: bool = False,
+                 num: float = 1.0):
+    """
+    Port of `EXCLUDE.py` (Ma 2016, used by Habibollahi et al. 2022).
+
+    Repeatedly fits tplfit(xmin search 1 … limit) and drops every copy of the
+    current largest value until KS < min(num/sqrt(n), 0.1) or KS stops changing
+    (|dKS| <= 0.0005). The stopping rule chases KS, so the trimmed range passes
+    the fit by construction — see CHANGELOG before using it for new claims.
+
+    Returns (xmax, xmin, alpha). xmax is the largest value left AFTER the last
+    drop, exactly as the reference returns it (callers then keep <= xmax + 1).
+    Raises ValueError when trimming empties the data, as the reference does.
+    """
+    burst = np.asarray(data, dtype=np.float64)
+    KS, dKS, xmin, alpha, xmax = 1.0, 1.0, 1, np.nan, np.nan
+    while True:
+        n_above = np.sum(burst > xmin)
+        thr = min(num / np.sqrt(n_above), 0.1) if n_above > 0 else 0.1
+        if not (KS > thr and dKS > 0.0005):
+            break
+        if burst.size == 0:
+            raise ValueError("EXCLUDE trimmed away all data")
+        alpha, xmin, ks, _ = tplfit(burst, limit=limit, clip_cdf=False,
+                                    legacy_normalization=legacy_normalization)
+        if not np.isfinite(ks):
+            raise ValueError("EXCLUDE: too few values left to fit")
+        KS_old, KS = KS, ks
+        dKS = abs(KS_old - KS)
+        burst = burst[burst < burst.max()]
+        if burst.size == 0:
+            raise ValueError("EXCLUDE trimmed away all data")
+        xmax = burst.max()
+    return float(xmax), int(xmin), float(alpha)
+
+
+def _fit_excluded(x: np.ndarray, floor: int, legacy_normalization: bool,
+                  is_duration: bool):
+    """
+    One branch of Habibollahi's AV_analysis_ExponentErrorComments (EX_burst=1 /
+    EX_time=1): pre-cut at max^0.8, EXCLUDE, then tplfit on [xmin, xmax(+1)].
+    Returns (exponent, xmin, xmax, n_used, fell_back).
+    """
+    x = np.asarray(x, dtype=np.float64)
+    top = np.max(x)
+    try:
+        xmax, xmin, _ = exclude_tail(x[x < np.power(top, 0.8)], limit=floor,
+                                     legacy_normalization=legacy_normalization)
+        if is_duration and xmax < 40:
+            xmax = float(np.floor(np.power(top, 0.9)))
+        sel = x[(x >= xmin) & (x <= xmax + 1)]
+        fell_back = False
+    except ValueError:
+        # reference fallback: "could not minimize KS ... wants to exclude all data"
+        xmax, xmin = float(np.power(top, 0.8)), int(floor)
+        sel = x[(x >= xmin) & (x < xmax)]
+        fell_back = True
+    # final fit: the reference searches xmin 1 … xmin over data already >= xmin,
+    # so every candidate sees the same subset and gives the same exponent
+    expo, _, _, _ = tplfit(sel, limit=max(int(xmin), 1), clip_cdf=False,
+                           legacy_normalization=legacy_normalization)
+    return expo, int(xmin), float(xmax), int(sel.size), fell_back
+
+
 # ── Compute all exponents + DCC ────────────────────────────────────────────────
 def compute_exponents(sizes: np.ndarray,
                       durations: np.ndarray,
@@ -130,7 +201,8 @@ def compute_exponents(sizes: np.ndarray,
                       t_min: int = 4,
                       legacy_normalization: bool = False,
                       xmin_s: int = None,
-                      xmin_d: int = None) -> dict:
+                      xmin_d: int = None,
+                      exclude: bool = False) -> dict:
     """
     Fit power-law exponents for size (τ) and duration (α), then compute
     the predicted scaling exponent β_pred and DCC.
@@ -147,10 +219,15 @@ def compute_exponents(sizes: np.ndarray,
                 exponents. See tplfit() for why you should not use it.
     xmin_s, xmin_d : fix the lower cut-off instead of searching for it
                 (--pl_xmin_S / --pl_xmin_D). Default None = automatic.
+    exclude   : also trim the upper tail with Habibollahi's EXCLUDE (--pl_exclude).
+                burst_min / t_min become EXCLUDE's bm / tm. Cannot be combined
+                with xmin_s / xmin_d.
 
     Returns
     -------
-    dict with keys: tau, xmin_s, alpha, xmin_d, beta_pred, beta_fit, dcc
+    dict with keys: tau, xmin_s, alpha, xmin_d, beta_pred, beta_fit, dcc;
+    with exclude also xmax_s, xmax_d, n_fit_s, n_fit_d, n_total,
+    fallback_s, fallback_d
     """
     result = dict(tau=np.nan, xmin_s=np.nan, alpha=np.nan, xmin_d=np.nan,
                   beta_pred=np.nan, beta_fit=np.nan, dcc=np.nan)
@@ -158,19 +235,30 @@ def compute_exponents(sizes: np.ndarray,
     if sizes.size < 5 or durations.size < 5:
         return result
 
-    # τ – size exponent
-    tau, xmin_s, _, _ = tplfit(sizes, limit=burst_min,
-                               legacy_normalization=legacy_normalization,
-                               xmin=xmin_s)
-    result["tau"]    = tau
-    result["xmin_s"] = xmin_s
+    if exclude:
+        if xmin_s is not None or xmin_d is not None:
+            raise ValueError("exclude cannot be combined with a fixed xmin")
+        tau, xmin_s, xmax_s, n_s, fb_s = _fit_excluded(
+            sizes, burst_min, legacy_normalization, is_duration=False)
+        alpha, xmin_d, xmax_d, n_d, fb_d = _fit_excluded(
+            durations, t_min, legacy_normalization, is_duration=True)
+        result.update(tau=tau, xmin_s=xmin_s, alpha=alpha, xmin_d=xmin_d,
+                      xmax_s=xmax_s, xmax_d=xmax_d, n_fit_s=n_s, n_fit_d=n_d,
+                      n_total=int(sizes.size), fallback_s=fb_s, fallback_d=fb_d)
+    else:
+        # τ – size exponent
+        tau, xmin_s, _, _ = tplfit(sizes, limit=burst_min,
+                                   legacy_normalization=legacy_normalization,
+                                   xmin=xmin_s)
+        result["tau"]    = tau
+        result["xmin_s"] = xmin_s
 
-    # α – duration exponent
-    alpha, xmin_d, _, _ = tplfit(durations, limit=t_min,
-                                 legacy_normalization=legacy_normalization,
-                                 xmin=xmin_d)
-    result["alpha"]  = alpha
-    result["xmin_d"] = xmin_d
+        # α – duration exponent
+        alpha, xmin_d, _, _ = tplfit(durations, limit=t_min,
+                                     legacy_normalization=legacy_normalization,
+                                     xmin=xmin_d)
+        result["alpha"]  = alpha
+        result["xmin_d"] = xmin_d
 
     # β_pred = (α−1)/(τ−1)
     if np.isfinite(tau) and np.isfinite(alpha) and (tau != 1.0):

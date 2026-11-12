@@ -1,4 +1,4 @@
-# CASCADE v0.9.2
+# CASCADE v0.9.3
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
@@ -48,7 +48,7 @@ cascade --test
 
 ```
 ================================
-  CASCADE v0.9.2 — Self-test
+  CASCADE v0.9.3 — Self-test
 ================================
   1. Synthetic recording generation... PASS
   2. Spike filtering (active-electrode)... PASS
@@ -364,6 +364,7 @@ ltpltd_out/
 | `--legacy_powerlaw` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
 | `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
 | `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
+| `--pl_exclude` | off | Also trim the upper tail before fitting (Habibollahi 2022 `EXCLUDE`). For comparison with that pipeline only: add `--legacy_powerlaw` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
 | `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
 | `--skip_rare_durations` | off | Exclude singletons from log-log fit (does not affect MLE) |
 

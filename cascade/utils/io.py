@@ -81,8 +81,11 @@ def write_criticality_report(metrics: dict, out_path: str):
     sc_beta     : float – shape-collapse optimal beta
     sce         : float – |sc_beta - beta_pred|
     sc_minerr   : float – minimum shape-collapse variance metric
-    auto_fit    : dict  – optional; the automatic-xmin fit, present only when
-                          --pl_xmin_S/D fixed xmin by hand
+    auto_fit    : dict  – optional; the automatic-xmin, untrimmed fit, present
+                          when --pl_xmin_S/D or --pl_exclude changed the fit
+    auto_fit_why: str   – "xmin" or "exclude": which of the two did
+    xmax_s, xmax_d, n_fit_s, n_fit_d, n_total – upper cut-offs and avalanches
+                          used, present only with --pl_exclude
     """
     lines = []
     w = metrics.get("well", "unknown")
@@ -100,9 +103,19 @@ def write_criticality_report(metrics: dict, out_path: str):
                  f"   xmin_S = {metrics.get('xmin_s', 'n/a')}")
     lines.append(f"  alpha (duration exponent) : {metrics.get('alpha', float('nan')):.6f}"
                  f"   xmin_D = {metrics.get('xmin_d', 'n/a')}")
+    if metrics.get("xmax_s") is not None:
+        n_tot = metrics.get("n_total")
+        lines.append(f"  ** UPPER TAIL TRIMMED (--pl_exclude, Habibollahi 2022 EXCLUDE)")
+        lines.append(f"     size fit range     : [{metrics.get('xmin_s')}, {metrics['xmax_s']:g}]"
+                     f"   {metrics.get('n_fit_s')}/{n_tot} avalanches used")
+        lines.append(f"     duration fit range : [{metrics.get('xmin_d')}, {metrics['xmax_d']:g}]"
+                     f"   {metrics.get('n_fit_d')}/{n_tot} avalanches used")
     auto = metrics.get("auto_fit")
     if auto:
-        lines.append("  ** xmin SET MANUALLY (--pl_xmin_S/--pl_xmin_D). Automatic fit for comparison:")
+        if metrics.get("auto_fit_why") == "exclude":
+            lines.append("  ** Untrimmed fit (no --pl_exclude) for comparison:")
+        else:
+            lines.append("  ** xmin SET MANUALLY (--pl_xmin_S/--pl_xmin_D). Automatic fit for comparison:")
         lines.append(f"     tau = {auto.get('tau', float('nan')):.6f} (xmin_S = {auto.get('xmin_s')})"
                      f"   alpha = {auto.get('alpha', float('nan')):.6f} (xmin_D = {auto.get('xmin_d')})"
                      f"   DCC = {auto.get('dcc', float('nan')):.6f}")
