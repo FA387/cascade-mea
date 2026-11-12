@@ -820,7 +820,7 @@ cascade/
 │   ├── base_loader.py
 │   ├── brainwave_loader.py  (3Brain .bxr)
 │   ├── maxwell_loader.py    (Maxwell .h5)
-│   ├── cl1_loader.py        (Cortical Labs .h5)
+│   ├── cl_loader.py         (Cortical Labs .h5)
 │   ├── mcs_loader.py        (Multi Channel Systems .h5)
 │   └── axion_loader.py      (Axion .csv)
 │

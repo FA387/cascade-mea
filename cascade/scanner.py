@@ -51,9 +51,10 @@ from cascade import __version__
 from cascade.utils.citation import add_citation_argument
 from cascade.loaders.brainwave_loader import BrainwaveLoader
 from cascade.loaders.maxwell_loader   import MaxwellLoader
-from cascade.loaders.cl1_loader       import CL1Loader
+from cascade.loaders.cl_loader        import CLLoader
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
+from cascade.loaders                  import read_error_message, EXTENSIONS
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
@@ -154,7 +155,7 @@ def _get_loader(manufacturer: str):
     if manufacturer == "maxwell":
         return MaxwellLoader()
     if manufacturer == "cl":
-        return CL1Loader()
+        return CLLoader()
     if manufacturer == "mcs":
         return MCSLoader()
     if manufacturer == "axion":
@@ -337,15 +338,9 @@ def write_summary(rows: list, out_dir: str):
 
 
 # ── folder scan ─────────────────────────────────────────────────────────────────
-# Only the manufacturer's own file type is scanned, so a mixed folder skips the
-# other devices' files instead of failing on each of them.
-_EXTENSIONS = {
-    "3brain":  {".bxr"},
-    "maxwell": {".h5", ".hdf5"},
-    "cl":      {".h5", ".hdf5"},
-    "mcs":     {".h5", ".hdf5"},
-    "axion":   {".csv"},
-}
+# Only the manufacturer's own file type (loaders.EXTENSIONS) is scanned, so a
+# mixed folder skips the other devices' files instead of failing on each of them.
+_EXTENSIONS = {k: set(v) for k, v in EXTENSIONS.items()}
 
 
 def scan_folder(folder: str, manufacturer: str, ae_per_min: float,
@@ -457,8 +452,13 @@ def main():
         rows = scan_folder(args.input, args.manufacturer, args.ae, args.start,
                            args.dur, args.sr)
     elif os.path.isfile(args.input):
-        info = scan_file(args.input, args.manufacturer, args.well, args.ae,
-                         args.start, args.dur, args.sr)
+        try:
+            info = scan_file(args.input, args.manufacturer, args.well, args.ae,
+                             args.start, args.dur, args.sr)
+        except Exception as e:
+            print("ERROR: " + read_error_message(args.input, args.manufacturer, e),
+                  file=sys.stderr)
+            sys.exit(1)
         print("=" * 60)
         _print_result(args.input, info)
         print("=" * 60)

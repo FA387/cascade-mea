@@ -46,6 +46,30 @@ of "Spike filtering" (it sets the firing-rate bin, it filters nothing) and
 `--simple_PL`/`--simple_BR` share a "reproducing v0.8.0" group. Layout only: every
 flag's name, default and behaviour is unchanged. The short `-h` is removed; use `--help`.
 
+### Fixed — `environment.yml` installed the old release
+
+`environment.yml` also pip-installed `cascade-mea` from PyPI, which serves 0.8.0, so
+`conda env create` alone gave the old methods (the README's following `pip install .`
+replaced it). The PyPI line is removed; CASCADE is installed from the folder with
+`pip install .` as the README says.
+
+### Changed — clear message for a file the chosen manufacturer can't read
+
+A wrong `--manufacturer` (easy with `.h5`, which three devices share) used to end in a
+Python traceback. `cascade` and `cascade-info` now print one plain message with the
+original error and, when the file's own attributes identify the device, the right value:
+`This file looks like a 'cl' recording - try --manufacturer cl.` Detection lives in
+`cascade/loaders/__init__.py` (`detect_manufacturer`, `read_error_message`), shared by both
+tools. Results for readable files are unchanged.
+
+### Changed — Cortical Labs is `cl` everywhere
+
+The loader is now `cascade/loaders/cl_loader.py` with class `CLLoader` (was
+`cl1_loader.py` / `CL1Loader`), and it reports itself as "Cortical Labs", matching the
+`--manufacturer cl` value. Code that imported `CL1Loader` must use `CLLoader`. Output
+files are byte-identical. (Detection still matches the `CL1-…` `system_id` the device
+writes into its files.)
+
 ### Fixed — help text and a silent skip
 
 - `--epochA` without `--epochB` (or the reverse) was silently ignored; it now prints a

@@ -11,5 +11,4 @@ dependencies:
   - h5py
   - seaborn
   - pip
-  - pip:
-    - cascade-mea
+# CASCADE itself is installed from this folder afterwards: pip install .

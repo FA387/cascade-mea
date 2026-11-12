@@ -1,7 +1,7 @@
 """
-loaders/cl1_loader.py
+loaders/cl_loader.py
 ---------------------
-Loader for Cortical Labs CL1 .h5 files.
+Loader for Cortical Labs (cl) .h5 files.
 
 Both the standard recording and the game recording are supported.
 The game recording contains additional /data_stream/ groups (ball position,
@@ -38,39 +38,39 @@ from .base_loader import BaseLoader
 from cascade.utils.common import MEARecording, frames_to_seconds
 
 
-class CL1Loader(BaseLoader):
+class CLLoader(BaseLoader):
 
     @staticmethod
     def manufacturer_name() -> str:
-        return "Cortical Labs CL1"
+        return "Cortical Labs"
 
     # ── file identification ────────────────────────────────────────────────────
     @staticmethod
-    def is_cl1_file(path: str) -> bool:
-        """Return True if the HDF5 file looks like a CL1 recording."""
+    def is_cl_file(path: str) -> bool:
+        """Return True if the HDF5 file looks like a CL recording."""
         try:
             with h5py.File(path, "r") as h5:
                 sid = h5.attrs.get("system_id", b"")
                 if isinstance(sid, (bytes, np.bytes_)):
                     sid = sid.decode("ascii", errors="replace")
-                return str(sid).upper().startswith("CL1")
+                return str(sid).upper().startswith("CL1")  # the device writes its own name, "CL1-…", into system_id
         except Exception:
             return False
 
-    # ── well listing (CL1 is single-well; exposed for API compatibility) ──────
+    # ── well listing (CL is single-well; exposed for API compatibility) ──────
     @staticmethod
     def list_wells(h5: h5py.File) -> list:
-        """CL1 has no well concept.  Returns ['default'] for display purposes."""
+        """CL has no well concept.  Returns ['default'] for display purposes."""
         return ["default"]
 
     # ── main entry point ──────────────────────────────────────────────────────
     def load(self, path: str, well: str = None,
              start_s: float = 0.0, duration_s: float = None) -> MEARecording:
         """
-        Load spikes from a Cortical Labs CL1 .h5 file.
+        Load spikes from a Cortical Labs (cl) .h5 file.
 
         The `well` parameter is accepted for API compatibility but is unused —
-        CL1 is a single-well system.
+        CL is a single-well system.
 
         Parameters
         ----------

@@ -15,7 +15,7 @@ python run_analysis.py --input recording.bxr --manufacturer 3brain --output resu
 # Maxwell file:
 python run_analysis.py --input data.raw.h5 --manufacturer maxwell --output results/
 
-# CL1 file:
+# Cortical Labs (cl) file:
 python run_analysis.py --input recording.h5 --manufacturer cl --output results/
 
 # MCS file:
@@ -48,7 +48,8 @@ from cascade import __version__
 from cascade.utils.citation import add_citation_argument
 from cascade.loaders.brainwave_loader import BrainwaveLoader
 from cascade.loaders.maxwell_loader   import MaxwellLoader
-from cascade.loaders.cl1_loader       import CL1Loader
+from cascade.loaders.cl_loader        import CLLoader
+from cascade.loaders                  import read_error_message
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
 from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics
@@ -69,40 +70,13 @@ from cascade.utils.common       import say, banner, step, CYAN, GRN, YEL, RED
 from cascade.utils.io           import write_csv, write_tsv, write_criticality_report, write_run_log, _Tee
 
 
-# ── manufacturer auto-detection ────────────────────────────────────────────────
-def _peek_h5_manufacturer(path: str) -> str:
-    """Peek inside an HDF5 file to distinguish CL1 / MCS / Maxwell."""
-    try:
-        import h5py
-        with h5py.File(path, "r") as h5:
-            sid = h5.attrs.get("system_id", b"")
-            if isinstance(sid, (bytes, np.bytes_)):
-                sid = sid.decode("ascii", errors="replace")
-            if str(sid).upper().startswith("CL1"):
-                return "cl"
-            if "McsHdf5ProtocolType" in h5.attrs:
-                return "mcs"
-    except Exception:
-        pass
-    return "maxwell"
-
-
-def detect_manufacturer(path: str) -> str:
-    ext = os.path.splitext(path)[1].lower()
-    if ext == ".bxr":
-        return "3brain"
-    if ext in (".h5", ".hdf5"):
-        return _peek_h5_manufacturer(path)
-    return "unknown"
-
-
 def get_loader(manufacturer: str):
     if manufacturer == "3brain":
         return BrainwaveLoader()
     if manufacturer == "maxwell":
         return MaxwellLoader()
     if manufacturer == "cl":
-        return CL1Loader()
+        return CLLoader()
     if manufacturer == "mcs":
         return MCSLoader()
     if manufacturer == "axion":
@@ -223,7 +197,7 @@ def main():
                          "typically picking up mechanical artefacts or electrical "
                          "interference rather than real action potentials. "
                          "Set to 0 to disable. Recommended starting value: 200 (µV). "
-                         "Supported: CL1, 3Brain, Maxwell (single-peak value, if "
+                         "Supported: CL, 3Brain, Maxwell (single-peak value, if "
                          "stored), MCS, Axion "
                          "— all in µV. (default: 0 = off)")
 
@@ -488,10 +462,14 @@ def main():
 
     # ── load data ──────────────────────────────────────────────────────────────
     step("Loading data", enabled=v)
-    rec = loader.load(path,
-                      well       = args.well,
-                      start_s    = args.start,
-                      duration_s = args.dur)
+    try:
+        rec = loader.load(path,
+                          well       = args.well,
+                          start_s    = args.start,
+                          duration_s = args.dur)
+    except Exception as e:
+        say(read_error_message(path, mfr, e), "[FAIL]", RED)
+        sys.exit(1)
 
     say(f"SR={rec.sampling_rate:.1f} Hz  |  "
         f"channels={rec.n_channels}  |  "
