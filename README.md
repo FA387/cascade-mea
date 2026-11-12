@@ -8,7 +8,29 @@
 
 CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA) recordings from multiple manufacturers. It reads manufacturer-specific spike files, converts them into a common internal format, and runs a standardised sequence of analyses: firing-rate characterisation, network burst detection, neuronal avalanche segmentation, criticality metrics, functional connectivity, and spatial entropy. All figures are saved as PNG (300 dpi) and all numerical results as TSV files. The pipeline is designed to produce reproducible results suitable for peer-reviewed publication.
 
-Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https://doi.org/10.1093/bioinformatics/btag570) — see [Citing CASCADE](#citing-cascade). The article describes v0.8.0; see [Differences from the published article](#differences-from-the-published-article) for what has changed since.
+Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https://doi.org/10.1093/bioinformatics/btag570) — see [Citing CASCADE](#citing-cascade).
+
+> **This is v0.9.5.** The article describes v0.8.0. This version keeps the same pipeline and adds new features and options — see [What's new since the article](#whats-new-since-the-article).
+
+---
+
+## What's new since the article
+
+**New features and options**
+
+- **Synchrony metrics** — spike-timing synchrony for all five manufacturers (normalised cross-correlogram area and Synchrony Index by default; SPIKE-distance and more with `--sync_metrics`). See [Synchrony metrics](#synchrony-metrics).
+- **Amplitude artefact filter** — `--max_amplitude` removes channels with spikes above a µV threshold. See [Noise filtering](#noise-filtering).
+- **Upper-tail trimming** — opt-in `--pl_exclude`, the EXCLUDE step of the Habibollahi et al. (2023) reference code.
+- **`--citation`** in all three tools, and the run log records the CASCADE version.
+- **Uniform flags** — all three tools use `--input` / `--output`.
+- **Bug fixes** — `--pl_xmin_S` / `--pl_xmin_D` now fix the fit (not only the plot), MCS amplitudes are in µV, and single-channel recordings skip connectivity correctly.
+
+**Two calculations were corrected**, so default numbers differ from the article:
+
+- the **power-law fit** normalisation (τ, α, β_pred, DCC, SCE);
+- the **branching ratio**, now the Wilting & Priesemann (2018) estimator the article cites.
+
+To get the article's numbers, add `--simple_PL --simple_BR` — see [Reproducing the published v0.8.0 results](#reproducing-the-published-v080-results) and [Differences from the published article](#differences-from-the-published-article). Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -24,13 +46,15 @@ Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https
 
 ## Supported manufacturers
 
-| Manufacturer | File format | Notes |
-|---|---|---|
-| 3Brain BrainWave | `.bxr` | Reads SpikeTimes, SpikeChIdxs, SpikeUnits, SpikeForms |
-| Maxwell Biosystems | `.h5` | Reads data_store/stream/spikes (frameno, channel, amplitude) |
-| Multi Channel Systems | `.h5` | MCS HDF5 v3; reads SegmentStream spike timestamps |
-| Cortical Labs | `.h5` | PyTables HDF5; reads /spikes table (timestamp, channel) |
-| Axion BioSystems | `.csv` | Reads spike timestamps from AxIS spike-list CSV exports |
+All three tools need `--manufacturer` to read the file correctly. Choose the value that matches your recording — `.h5` is shared by three manufacturers, so check which device recorded it.
+
+| Manufacturer | `--manufacturer` | File format | What is read |
+|---|---|---|---|
+| 3Brain BrainWave | `3brain` | `.bxr` | SpikeTimes, SpikeChIdxs, SpikeUnits, SpikeForms |
+| Maxwell Biosystems | `maxwell` | `.h5` | data_store/stream/spikes (frameno, channel, amplitude) |
+| Cortical Labs | `cl` | `.h5` | PyTables HDF5; /spikes table (timestamp, channel) |
+| Multi Channel Systems | `mcs` | `.h5` | MCS HDF5 v3; SegmentStream spike timestamps |
+| Axion BioSystems | `axion` | `.csv` | Spike timestamps from AxIS spike-list CSV exports |
 
 ---
 
@@ -83,17 +107,7 @@ If any test fails, check your environment (missing dependencies, incorrect Pytho
 
 ## Quick start
 
-### Manufacturer spike loaders
-
-CASCADE supports five MEA manufacturers. All tools require `--manufacturer` to identify the file format and load spikes correctly. Choose the value that matches your recording:
-
-| Manufacturer | Flag | File format |
-|---|---|---|
-| 3Brain BrainWave | `3brain` | `.bxr` |
-| Maxwell Biosystems | `maxwell` | `.h5` |
-| Cortical Labs | `cl` | `.h5` |
-| Multi Channel Systems | `mcs` | `.h5` |
-| Axion BioSystems | `axion` | `.csv` |
+Replace `[manufacturer]` with the value from [Supported manufacturers](#supported-manufacturers).
 
 ### cascade-info
 

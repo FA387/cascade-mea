@@ -28,8 +28,11 @@ writes, instead of `rates_*.csv`.
   Index), not `xcorr`.
 - β_fit range is xmin_D < D < xmin_D + 60 (fitted duration cut-off), not
   `[t_min, t_min + 60]`.
-- New sections: *Citing CASCADE*, *Reproducing the published v0.8.0 results*
-  (`--simple_PL --simple_BR`), *Differences from the published article*.
+- New sections: *What's new since the article* (near the top), *Citing CASCADE*,
+  *Reproducing the published v0.8.0 results* (`--simple_PL --simple_BR`),
+  *Differences from the published article*.
+- The two manufacturer tables are merged into one under *Supported manufacturers*,
+  now including the `--manufacturer` value.
 - Logo restored; self-test output, output-file list (`wave_templates_<well>.png`),
   report and run-log descriptions, project structure and the `inspect_file`
   command brought up to date; Clauset 2009, Marshall 2016, Kreuz 2013 and
