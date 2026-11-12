@@ -437,7 +437,7 @@ def main():
                           "(default: 0)")
 
     g = ap.add_argument_group("5 Misc — information (no analysis)")
-    g.add_argument("-h", "--help", action="help",
+    g.add_argument("--help", action="help",
                     help="Show this help message and exit.")
     g.add_argument("--version", action="version", version=f"CASCADE v{__version__}",
                     help="Show the CASCADE version and exit.")

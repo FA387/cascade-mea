@@ -44,7 +44,7 @@ filters), **3 Analysis** (parameters of each calculation), **4 Output** (figure 
 terminal), **5 Misc** (`--help`, `--version`, `--citation`, `--test`). `--bin` moved out
 of "Spike filtering" (it sets the firing-rate bin, it filters nothing) and
 `--simple_PL`/`--simple_BR` share a "reproducing v0.8.0" group. Layout only: every
-flag's name, default and behaviour is unchanged.
+flag's name, default and behaviour is unchanged. The short `-h` is removed; use `--help`.
 
 ### Fixed — README
 
