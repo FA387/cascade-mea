@@ -11,27 +11,27 @@ against a BASELINE recording. Each electrode is classified as:
   LTD       — rate decreased by >= threshold %  (default 20 %)
   NoChange  — within threshold
 
-Input files are the rates_*.csv files produced by the main CASCADE pipeline.
+Input files are the rates_*.tsv files produced by the main CASCADE pipeline.
 No raw MEA data file is needed.
 
 Usage examples
 --------------
 # Single comparison (before → after stimulation):
-python ltpltd.py --baseline baseline_out/rates_Well_A1.csv \\
-                 --measure  stim_out/rates_Well_A1.csv \\
-                 --out ltpltd_results/
+cascade-ltpltd --baseline baseline_out/rates_Well_A1.tsv \\
+                 --measure  stim_out/rates_Well_A1.tsv \\
+                 --output ltpltd_results/
 
 # Multiple stimulation conditions in one run:
-python ltpltd.py --baseline baseline_out/rates_Well_A1.csv \\
-                 --measure  stim1_out/rates_Well_A1.csv \\
-                            stim2_out/rates_Well_A1.csv \\
-                            stim3_out/rates_Well_A1.csv \\
-                 --out ltpltd_results/
+cascade-ltpltd --baseline baseline_out/rates_Well_A1.tsv \\
+                 --measure  stim1_out/rates_Well_A1.tsv \\
+                            stim2_out/rates_Well_A1.tsv \\
+                            stim3_out/rates_Well_A1.tsv \\
+                 --output ltpltd_results/
 
 # Change the LTP/LTD threshold to 30 %:
-python ltpltd.py --baseline baseline_out/rates_Well_A1.csv \\
-                 --measure  stim_out/rates_Well_A1.csv \\
-                 --threshold 30 --out ltpltd_results/
+cascade-ltpltd --baseline baseline_out/rates_Well_A1.tsv \\
+                 --measure  stim_out/rates_Well_A1.tsv \\
+                 --threshold 30 --output ltpltd_results/
 """
 
 import argparse
@@ -55,7 +55,7 @@ CALL_COLOURS = {"LTP": "#e74c3c", "NoChange": "#95a5a6", "LTD": "#2980b9"}
 # ── core computation ───────────────────────────────────────────────────────────
 def per_electrode_mean(rates_csv: str) -> pd.DataFrame:
     """
-    Read a rates_*.csv produced by CASCADE and return mean firing rate
+    Read a rates_*.tsv produced by CASCADE and return mean firing rate
     per electrode.
 
     Parameters
@@ -72,7 +72,7 @@ def per_electrode_mean(rates_csv: str) -> pd.DataFrame:
     if not required.issubset(df.columns):
         raise ValueError(
             f"{rates_csv} is missing columns {required - set(df.columns)}. "
-            "Expected a rates_*.csv file produced by CASCADE."
+            "Expected a rates_*.tsv file produced by CASCADE."
         )
     return (
         df.groupby("ch_idx")["rate_hz"]
@@ -214,12 +214,12 @@ def main():
         description=(
             "CASCADE LTP/LTD — classify per-electrode firing-rate changes\n"
             "relative to a baseline recording.\n\n"
-            "Input files must be rates_*.csv files produced by the main\n"
-            "CASCADE pipeline (cascade --file ... --out ...).\n\n"
+            "Input files must be rates_*.tsv files produced by the main\n"
+            "CASCADE pipeline (cascade --input ... --output ...).\n\n"
             "Example:\n"
-            "  python ltpltd.py --baseline baseline_out/rates_Well_A1.csv \\\n"
-            "                   --measure  stim_out/rates_Well_A1.csv \\\n"
-            "                   --out ltpltd_results/"
+            "  cascade-ltpltd --baseline baseline_out/rates_Well_A1.tsv \\\n"
+            "                   --measure  stim_out/rates_Well_A1.tsv \\\n"
+            "                   --output ltpltd_results/"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -229,16 +229,16 @@ def main():
 
     ap.add_argument("--baseline",
                     required=True,
-                    metavar="CSV",
-                    help="Path to the rates_*.csv from the BASELINE CASCADE run. "
+                    metavar="TSV",
+                    help="Path to the rates_*.tsv from the BASELINE CASCADE run. "
                          "This is the reference against which all MEASURE files "
                          "are compared.")
 
     ap.add_argument("--measure",
                     required=True,
                     nargs="+",
-                    metavar="CSV",
-                    help="Path(s) to one or more rates_*.csv files to compare "
+                    metavar="TSV",
+                    help="Path(s) to one or more rates_*.tsv files to compare "
                          "against the baseline. Separate multiple paths with "
                          "spaces.")
 
@@ -250,10 +250,10 @@ def main():
                          "Electrodes with change >= +threshold are called LTP; "
                          "<= -threshold are called LTD. (default: 20)")
 
-    ap.add_argument("--out",
+    ap.add_argument("--output",
                     default="ltpltd_out",
                     metavar="DIR",
-                    help="Output folder for CSV results and figures. "
+                    help="Output folder for TSV results and figures. "
                          "Created automatically if it does not exist. "
                          "(default: ltpltd_out)")
 
@@ -281,7 +281,7 @@ def main():
             print(f"ERROR: measure file not found: {p}", file=sys.stderr)
         sys.exit(1)
 
-    os.makedirs(args.out, exist_ok=True)
+    os.makedirs(args.output, exist_ok=True)
 
     # ── run each measure file ──────────────────────────────────────────────────
     all_results = []
@@ -306,13 +306,13 @@ def main():
 
         # save per-condition TSV
         safe_label = label.replace("/", "_").replace("\\", "_")
-        csv_path = os.path.join(args.out, f"ltpltd_{safe_label}.tsv")
+        csv_path = os.path.join(args.output, f"ltpltd_{safe_label}.tsv")
         result.to_csv(csv_path, index=False, sep='\t')
         print(f"  Saved: {csv_path}")
 
         # save figures
-        bar_path = os.path.join(args.out, f"ltpltd_{safe_label}_bar.png")
-        pie_path = os.path.join(args.out, f"ltpltd_{safe_label}_pie.png")
+        bar_path = os.path.join(args.output, f"ltpltd_{safe_label}_bar.png")
+        pie_path = os.path.join(args.output, f"ltpltd_{safe_label}_pie.png")
         plot_pct_change(result, label, args.threshold, bar_path, args.svg, args.jpg)
         plot_summary_pie(result, label, args.threshold, pie_path, args.svg, args.jpg)
         print(f"  Saved: {bar_path}")
@@ -323,7 +323,7 @@ def main():
     # ── combined summary TSV (all conditions in one file) ─────────────────────
     if len(all_results) > 1:
         combined = pd.concat(all_results, ignore_index=True)
-        combined_path = os.path.join(args.out, "ltpltd_all_conditions.tsv")
+        combined_path = os.path.join(args.output, "ltpltd_all_conditions.tsv")
         combined.to_csv(combined_path, index=False, sep='\t')
         print(f"\nCombined TSV saved: {combined_path}")
 

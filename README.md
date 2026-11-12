@@ -1,8 +1,14 @@
-# CASCADE v0.9.4
+# CASCADE v0.9.5
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
+<div align="center">
+<img width="250" height="250" alt="CASCADE_Logo" src="https://github.com/user-attachments/assets/7a029bf6-93b7-4185-8859-888672b4bb65" />
+</div>
+
 CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA) recordings from multiple manufacturers. It reads manufacturer-specific spike files, converts them into a common internal format, and runs a standardised sequence of analyses: firing-rate characterisation, network burst detection, neuronal avalanche segmentation, criticality metrics, functional connectivity, and spatial entropy. All figures are saved as PNG (300 dpi) and all numerical results as TSV files. The pipeline is designed to produce reproducible results suitable for peer-reviewed publication.
+
+Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https://doi.org/10.1093/bioinformatics/btag570) — see [Citing CASCADE](#citing-cascade). The article describes v0.8.0; see [Differences from the published article](#differences-from-the-published-article) for what has changed since.
 
 ---
 
@@ -47,26 +53,29 @@ cascade --test
 **Expected output:**
 
 ```
-================================
-  CASCADE v0.9.4 — Self-test
-================================
-  1. Synthetic recording generation... PASS
-  2. Spike filtering (active-electrode)... PASS
-  3. Spike filtering (amplitude)... PASS
-  4. ISI metrics computation... PASS
-  5. Spike binning and rates... PASS
-  6. Network burst detection... PASS
-  7. Active area analysis... PASS
-  8. Avalanche detection... PASS
-   9. Synchrony metrics (xcorr, Kreuz, Paiva)... PASS
- 10. Power-law normalisation (known exponent)... PASS
- 11. Criticality metrics (tau, alpha, DCC, BR, SCE)... PASS
- 12. Branching ratio (MR estimator, subsampled)... PASS
- 13. Functional connectivity... PASS
- 14. Spatial entropy... PASS
-
-All 14 tests passed ✓
+CASCADE v0.9.5 — Built-in Self-Test
+===================================================================
+  Synthetic recording: 20 ch · 120 s · Poisson + bursts · seed 42
+===================================================================
+  Synthetic MEA recording ................................ PASS
+  Spike filtering (active-electrode filter) .............. PASS
+  Spike filtering (amplitude filter) ..................... PASS
+  ISI metrics ............................................ PASS
+  Spike binning .......................................... PASS
+  Network burst detection ................................ PASS
+  Active area ............................................ PASS
+  Avalanche detection .................................... PASS
+  Synchrony metrics (xcorr, Kreuz, Paiva) ................ PASS
+  Power-law normalisation (known exponent) ............... PASS
+  Criticality metrics (tau, alpha, DCC, BR) .............. PASS
+  Branching ratio (MR estimator, subsampled) ............. PASS
+  Functional connectivity ................................ PASS
+  Spatial entropy ........................................ PASS
+===================================================================
+  All 14 tests passed. CASCADE is installed correctly.
 ```
+
+Check the installed version with `cascade --version`; `cascade --citation` prints how to cite it.
 
 If any test fails, check your environment (missing dependencies, incorrect Python version, etc.).
 
@@ -112,7 +121,7 @@ Full analysis pipeline: generates raster plots, firing rates, burst detection, a
 # Basic: all defaults
 cascade --manufacturer [manufacturer] --input [input_recording] --output [output_dir]
 
-# Habibollahi 2022 method (percentile threshold + active-electrode filter)
+# 25th-percentile avalanche threshold + active-electrode filter
 cascade --manufacturer [manufacturer] --input [input_recording] --ae 5 --perc 0.25 --output [output_dir]
 
 # Analyze specific time window (0–120 seconds)
@@ -132,6 +141,9 @@ cascade --manufacturer [manufacturer] --input [input_recording] --svg --output [
 
 # Test mode (synthetic data, no real file needed)
 cascade --test
+
+# Reproduce the published v0.8.0 numbers (see "Reproducing the published v0.8.0 results")
+cascade --manufacturer [manufacturer] --input [input_recording] --simple_PL --simple_BR --output [output_dir]
 ```
 
 ### cascade-ltpltd
@@ -141,16 +153,16 @@ LTP/LTD (long-term potentiation/depression) classification by comparing firing r
 ```bash
 # Single condition
 cascade-ltpltd --baseline [baseline_rates.tsv] \
-                --measure [stim_rates.tsv] \
-                --output [output_dir]
+               --measure [stim_rates.tsv] \
+               --output [output_dir]
 
 # Custom threshold (default 20%)
 cascade-ltpltd --baseline [baseline_rates.tsv] --measure [stim_rates.tsv] --threshold 30 --output [output_dir]
 
 # Multiple conditions
 cascade-ltpltd --baseline [baseline_rates.tsv] \
-                --measure [stim1_rates.tsv] [stim2_rates.tsv] [stim3_rates.tsv] \
-                --output [output_dir]
+               --measure [stim1_rates.tsv] [stim2_rates.tsv] [stim3_rates.tsv] \
+               --output [output_dir]
 ```
 
 ---
@@ -172,6 +184,7 @@ mea_out/
 ├── loglog_size_<well>.png             # log-log size distribution with power-law fit
 ├── loglog_duration_<well>.png         # log-log duration distribution with power-law fit
 ├── shape_collapse_<well>.png          # avalanche shape collapse
+├── wave_templates_<well>.png          # (3Brain with stored waveforms) mean spike waveform per channel
 ├── corr_heatmap_max_<well>.png        # correlation matrix — all electrode slots
 ├── corr_heatmap_active_<well>.png     # correlation matrix — active electrodes only
 ├── degree_hist_<well>.png             # node degree distribution
@@ -194,7 +207,7 @@ mea_out/
 ├── branching_mr_<well>.png            # r_k vs lag with the fitted exponentials
 ├── branching_points_<well>.tsv        # mean N(t+1) per N(t), for the --simple_BR fit
 ├── criticality_report_<well>.txt      # plain-text criticality metrics summary
-└── cascade_run.log                    # command, parameters, and run status
+└── cascade_run.log                    # command, CASCADE version, and run status
 ```
 
 #### Figures
@@ -241,6 +254,9 @@ Normalised spatial entropy of the spike distribution computed in sliding windows
 **`active_area_curve_<well>.png`**
 Fraction of active electrodes that fired in each time window. Reveals how broadly or focally the network recruits its active population over time and complements the entropy curve in characterising spatial dynamics.
 
+**`wave_templates_<well>.png`**
+Mean spike waveform per channel. Produced only for 3Brain `.bxr` files that store spike waveforms (`SpikeForms`); useful for checking that detected spikes look like action potentials rather than artefacts.
+
 **`epoch_compare_<well>.png`**
 Bar chart comparing population firing rate and active area fraction between epoch A and epoch B. Only produced when both `--epochA` and `--epochB` are provided. Provides a concise visual summary of the effect of an intervention or stimulation.
 
@@ -283,10 +299,10 @@ The multi-lag (MR) branching ratio of Wilting & Priesemann (2018), the default s
 Population spike count pairs N(t) and N(t+1) for each Δt bin, used as input for the simple single-lag regression reported with `--simple_BR`. Included so the BR fit can be reproduced, visualised, or checked independently of the main pipeline.
 
 **`criticality_report_<well>.txt`**
-Plain-text summary of all criticality metrics: τ, α, β_pred, β_fit, DCC, branching ratio (BR), BR intercept, shape collapse error (SCE), and the xmin values used in the power-law fits. This is the primary result file for reporting and manual inspection.
+Plain-text summary of all criticality metrics: τ, α and their xmin values, β_pred, β_fit, DCC, the branching ratio (BR, with the MR fit's b, autocorrelation time τ, lag range and its three quality checks, plus the simple single-lag value for comparison), and the shape collapse error (SCE). Any `--simple_PL`, `--simple_BR`, `--pl_xmin_S/D` or `--pl_exclude` choice is stated in the report. This is the primary result file for reporting and manual inspection.
 
 **`cascade_run.log`**
-Records the exact command, all parameters, timestamp, Python version, platform, and success or failure status for each run. Supports reproducibility by preserving the full analysis context alongside the outputs.
+Records the exact command (and therefore every parameter), the CASCADE version, timestamp, Python version, platform, working directory, success or failure status, and the terminal output for each run. Report the CASCADE version with your results: criticality metrics differ between versions (see `CHANGELOG.md`).
 
 ---
 
@@ -312,7 +328,7 @@ ltpltd_out/
 
 | Flag | Default | Description |
 |---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl1`, `mcs`, or `axion` |
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` |
 | `--input` | — | Path to `.bxr`, `.h5`, or `.csv` file |
 | `--folder` | — | Folder to scan (all `.bxr` and `.h5` files) |
 | `--well` | first | Well or stream name |
@@ -321,14 +337,23 @@ ltpltd_out/
 | `--ae` | off | Active-electrode filter: ≥N spikes/min |
 | `--output` | — | Save summary to this TSV path (folder mode only) |
 | `--sr` | — | Sampling rate Hz (for plain CSV input only) |
+| `--version` / `--citation` | — | Print the version / how to cite CASCADE, and exit |
 
 ### cascade
+
+**General**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--test` | — | Run the 14 built-in self-tests on synthetic data (no recording needed) |
+| `--version` | — | Print the CASCADE version and exit |
+| `--citation` | — | Print how to cite CASCADE (text and BibTeX) and exit |
 
 **Input/Output**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl1`, `mcs`, or `axion` |
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` |
 | `--input` | auto-search | Path to `.bxr`, `.h5`, or `.csv` file |
 | `--well` | first | Well or stream name |
 | `--output` | `mea_out` | Output folder |
@@ -359,7 +384,7 @@ ltpltd_out/
 | `--ava_size` | `2` | Minimum avalanche size (spikes). Single spikes are not avalanches. |
 | `--ava_dur` | `1` | Minimum avalanche duration (bins). Default=1 allows synchronous bursts. |
 | `--aval_dt` | inferred | Avalanche bin width (seconds); auto = mean ISI clipped to 1–50 ms |
-| `--perc` | off | Population activity percentile threshold. Use `0.25` for Habibollahi 2022 method |
+| `--perc` | off | Population activity percentile threshold. `0.25` is the default of the Habibollahi et al. (2023) reference code (their paper reports 40% of the median) |
 
 **Criticality metrics**
 
@@ -367,10 +392,10 @@ ltpltd_out/
 |---|---|---|
 | `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
 | `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
-| `--simple_PL` | off | Reproduce the biased pre-0.9.1 power-law normalisation. Use **only** to regenerate previously published numbers — see `CHANGELOG.md` |
+| `--simple_PL` | off | Use the power-law normalisation of v0.8.0–v0.9.0 (biased below ~1,000 avalanches). Use **only** to regenerate previously published numbers; add `--simple_BR` as well to reproduce v0.8.0 exactly |
 | `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
 | `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
-| `--pl_exclude` | off | Also trim the upper tail before fitting (Habibollahi 2022 `EXCLUDE`). For comparison with that pipeline only: add `--simple_PL` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
+| `--pl_exclude` | off | Also trim the upper tail before fitting, with the `EXCLUDE` step of the Habibollahi et al. (2023) Python reference code (the MATLAB original differs). For comparison with that pipeline only: add `--simple_PL` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
 | `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
 | `--skip_rare_durations` | off | Exclude singletons from log-log fit (does not affect MLE) |
 
@@ -385,7 +410,7 @@ ltpltd_out/
 
 | Flag | Default | Description |
 |---|---|---|
-| `--simple_BR` | off | Report the simple single-lag branching ratio of v0.8.0–v0.9.3 instead of the MR estimator. Biased toward 0 under subsampling; use **only** to reproduce previously published numbers |
+| `--simple_BR` | off | Report the simple single-lag branching ratio of v0.8.0–v0.9.3 instead of the MR estimator. Biased toward 0 under subsampling; use **only** to reproduce previously published numbers; add `--simple_PL` as well to reproduce v0.8.0 exactly |
 | `--br_tmax` | `2000` | Longest lag (ms) for the MR estimator. Should span several autocorrelation times; the report warns when it does not |
 
 **Burst detection**
@@ -405,7 +430,7 @@ ltpltd_out/
 
 | Flag | Default | Description |
 |---|---|---|
-| `--sync_metrics` | `xcorr` | `none` / `xcorr` / `kreuz` / `index` / `all`. `xcorr` is cheap (FFT); `kreuz` and `index` are O(N²) in channels |
+| `--sync_metrics` | `core` | `none` / `core` / `xcorr` / `kreuz` / `index` / `all`. `core` = normalised correlogram area + Synchrony Index. The correlogram is cheap (FFT); `kreuz` and `index` are O(N²) in channels |
 | `--sync_window` | `20.0` | Synchrony window in **ms** — the window around zero lag used for the area metrics. `5` for millisecond timescale, `100` for slow |
 | `--sync_bin` | `1.0` | Cross-correlogram bin width in **ms**. Absolute, never inferred from sampling rate |
 | `--sync_max_lag` | `500.0` | Maximum correlogram lag in **ms**. Must be wide enough to contain the peak or FWHH cannot be measured |
@@ -435,6 +460,9 @@ ltpltd_out/
 | `--output` | `ltpltd_out` | Output folder |
 | `--svg` / `--jpg` | off | Save figures as SVG/JPG |
 | `--verbose` | off | Print per-electrode table to terminal |
+| `--version` / `--citation` | — | Print the version / how to cite CASCADE, and exit |
+
+All three tools name their output folder or file `--output`; `cascade` and `cascade-info` read one recording with `--input`, while `cascade-ltpltd` takes two kinds of input, `--baseline` and `--measure`.
 
 ---
 
@@ -445,7 +473,7 @@ ltpltd_out/
 | **τ** (tau) | Avalanche size exponent | Power-law fit; tplfit KS-minimisation MLE |
 | **α** (alpha) | Avalanche duration exponent | Power-law fit; tplfit KS-minimisation MLE |
 | **β_pred** | Predicted scaling exponent | (α − 1) / (τ − 1) |
-| **β_fit** | Fitted scaling exponent | Slope of log(mean size) vs. log(duration), [t_min, t_min+60] |
+| **β_fit** | Fitted scaling exponent | Slope of log(mean size) vs. log(duration) for xmin_D < D < xmin_D + 60 (xmin_D = fitted duration cut-off) |
 | **DCC** | Deviation from Criticality Coefficient | \|β_pred − β_fit\| |
 | **BR** | Branching ratio m | Multi-lag MR estimator: r_k = b·m^k (Wilting & Priesemann 2018). `--simple_BR`: single-lag E[N(t+1)\|N(t)] slope, biased toward 0 under subsampling |
 | **SCE** | Shape Collapse Error | \|β_opt − β_pred\| |
@@ -520,7 +548,7 @@ before/after stimulation comparison, for instance, where there is no window to b
 accused of having chosen favourably.
 
 ```bash
-# correlogram metrics only (default), 20 ms synchrony window
+# default (core): normalised correlogram area + Synchrony Index, 20 ms window
 cascade --manufacturer [manufacturer] --input [recording] --output [dir]
 
 # millisecond timescale
@@ -611,8 +639,8 @@ is involved. Note that the derived dissimilarity 1 − *r* is a **semi-metric**:
 symmetric and positive but does not satisfy the triangle inequality.
 
 **Cost.** `kreuz` and `index` are O(N²) in channels and dominate the runtime on dense
-arrays, which is why `--sync_metrics` defaults to `xcorr` and why
-`--sync_max_channels` caps them at 64 channels by default. Subsampling uses a fixed
+arrays. The default `core` set includes the Synchrony Index, which is why
+`--sync_max_channels` caps the O(N²) measures at 64 channels by default. Subsampling uses a fixed
 seed and is recorded in the output as `kreuz_subsampled` / `index_subsampled`, so a
 subsampled result never looks like a full one.
 
@@ -632,7 +660,8 @@ This is the convention of Clauset et al. (2009) and of `plmle.py` in the NCC
 toolbox (Marshall et al. 2016).
 
 CASCADE ≤ 0.9.0 summed only over the avalanche values that actually occurred in
-the recording, reproducing `tplfit.py` from Habibollahi et al. (2022). That makes
+the recording, the normalisation used by the Habibollahi et al. (2023) reference
+`tplfit.py` (their paper's Eq. 1 states the full-range sum). That makes
 the normalising constant depend on the sample, which biases the exponent and also
 corrupts the KS-based xmin selection. The bias is largest when avalanches are few:
 
@@ -665,14 +694,56 @@ simply evaluates its normalising constant incorrectly. Do not use it for new wor
 
 ---
 
+## Reproducing the published v0.8.0 results
+
+The published article used CASCADE v0.8.0. Two methods have been corrected since
+(next section). To regenerate the v0.8.0 numbers exactly with the current version,
+add both switches:
+
+```bash
+cascade --manufacturer [manufacturer] --input [input_recording] --simple_PL --simple_BR --output [output_dir]
+```
+
+`--simple_PL` restores the old power-law normalisation (τ, α, β_pred, DCC, SCE) and
+`--simple_BR` the old branching ratio. Each also works on its own. Both print a
+warning, because neither should be used for new analyses. The v0.8.0 release itself
+remains available on GitHub and Zenodo.
+
+---
+
+## Differences from the published article
+
+The article (Avila et al. 2026) describes v0.8.0. Since then:
+
+| | v0.8.0 (article) | Current default | Old behaviour |
+|---|---|---|---|
+| **Power-law normalisation** (τ, α, β_pred, DCC, SCE) | Sum over the observed avalanche values only; biases the exponent below ~1,000 avalanches | Sum over every integer between the cut-offs (Clauset et al. 2009) | `--simple_PL` |
+| **Branching ratio** | Single-lag regression of N(t+1) on N(t), biased toward 0 under subsampling. The article cites Wilting & Priesemann (2018), whose estimator v0.8.0 did not implement | Multi-lag MR estimator of Wilting & Priesemann (2018), validated against their `mrestimator` toolbox, so the software now matches the article's description | `--simple_BR` |
+| **Upper-tail trimming** | None | None; opt-in `--pl_exclude` for comparison with the Habibollahi et al. (2023) pipeline | — |
+
+Two further points on attribution:
+
+- `--perc 0.25` is the default of the Habibollahi et al. (2023) reference code
+  (`AV_analysis_BurstT`). Their paper reports a threshold of 40% of the median activity.
+- The power-law fit follows the KS-minimising xmin search of that reference code, with
+  the normalisation corrected as above; `--pl_exclude` reproduces its Python version.
+
+Details and the measured effect of each change are in `CHANGELOG.md`.
+
+---
+
 ## Project structure
 
 ```
+environment.yml              conda environment
+pyproject.toml               package metadata and CLI entry points
+conda-recipe/meta.yaml       conda build recipe
+CITATION.cff                 citation metadata (GitHub "Cite this repository")
+CHANGELOG.md                 what changed in each version, and why
 cascade/
 ├── run_analysis.py          cascade command
 ├── scanner.py               cascade-info command
 ├── ltpltd.py                cascade-ltpltd command
-├── environment.yml
 │
 ├── loaders/                 manufacturer-specific I/O
 │   ├── base_loader.py
@@ -688,15 +759,18 @@ cascade/
 │   ├── avalanche.py         avalanche segmentation
 │   ├── criticality.py       power-law fitting, metrics
 │   ├── connectivity.py      functional connectivity
+│   ├── synchrony.py         cross-correlogram, Kreuz, Synchrony Index
 │   ├── entropy.py           spatial entropy
 │   └── plots.py             figure generation
 │
 ├── utils/
 │   ├── common.py            MEARecording dataclass, helpers
-│   ├── io.py                CSV/TSV writers
+│   ├── io.py                CSV/TSV writers, criticality report, run log
+│   ├── citation.py          --citation text
 │   └── inspect_file.py      HDF5 structure inspection
 │
-└── tests/                   unit tests (in progress)
+└── tests/
+    └── self_test.py         the 14 checks run by cascade --test
 ```
 
 Loaders convert manufacturer files → `MEARecording` object. Core modules only operate on that object. To add a manufacturer: write one new loader file and register it in `run_analysis.py`.
@@ -730,7 +804,18 @@ class YourLoader(BaseLoader):
         ...
 ```
 
-Run `python -m utils.inspect_file dump [yourfile]` to explore file structure.
+Run `python -m cascade.utils.inspect_file dump [yourfile]` to explore file structure.
+
+---
+
+## Citing CASCADE
+
+If you use CASCADE, please cite the article and state the CASCADE version you used
+(`cascade --version`):
+
+> Avila F, Kim J, Park J-C, Kang R, Lee H, Park S-H. CASCADE: criticality avalanche spike cross-platform analysis detection engine, a multi-manufacturer MEA bash analysis pipeline. *Bioinformatics*. 2026;42(8):btag570. https://doi.org/10.1093/bioinformatics/btag570
+
+`cascade --citation` prints this with a BibTeX entry, and GitHub's **Cite this repository** button reads `CITATION.cff`.
 
 ---
 
@@ -743,6 +828,14 @@ Run `python -m utils.inspect_file dump [yourfile]` to explore file structure.
 - Wilting, J., & Priesemann, V. (2018). Inferring collective dynamical states from widely unobserved systems. *Nature Communications*, **9**(1), 2325. https://doi.org/10.1038/s41467-018-04725-4
 
 - Friedman, N., Ito, S., Brinkman, B. A. W., Shimono, M., DeVille, R. E. L., Dahmen, K. A., Beggs, J. M., & Butler, T. C. (2012). Universal Critical Dynamics in High Resolution Neuronal Avalanche Data. *Physical Review Letters*, **108**(20), 208102. https://doi.org/10.1103/PhysRevLett.108.208102
+
+- Clauset, A., Shalizi, C. R., & Newman, M. E. J. (2009). Power-Law Distributions in Empirical Data. *SIAM Review*, **51**(4), 661–703. https://doi.org/10.1137/070710111
+
+- Marshall, N., Timme, N. M., Bennett, N., Ripp, M., Lautzenhiser, E., & Beggs, J. M. (2016). Analysis of Power Laws, Shape Collapses, and Neural Complexity: New Techniques and MATLAB Support via the NCC Toolbox. *Frontiers in Physiology*, **7**, 250. https://doi.org/10.3389/fphys.2016.00250
+
+- Kreuz, T., Chicharro, D., Houghton, C., Andrzejak, R. G., & Mormann, F. (2013). Monitoring spike train synchrony. *Journal of Neurophysiology*, **109**(5), 1457–1472. https://doi.org/10.1152/jn.00873.2012
+
+- Paiva, A. R. C., Park, I., & Príncipe, J. C. (2010). A comparison of binless spike train measures. *Neural Computing and Applications*, **19**(3), 405–419. https://doi.org/10.1007/s00521-009-0307-6
 
 - Poil, S.-S., Hardstone, R., Mansvelder, H. D., & Linkenkaer-Hansen, K. (2012). Critical-State Dynamics of Avalanches and Oscillations Jointly Emerge from Balanced Excitation/Inhibition in Neuronal Networks. *Journal of Neuroscience*, **32**(29), 9817–9823. https://doi.org/10.1523/JNEUROSCI.5990-11.2012
 

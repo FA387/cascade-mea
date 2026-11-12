@@ -7,7 +7,34 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [0.9.5] — 2026-11-12
+
+Documentation and interface release: no analysis result changes. Every TSV output is
+byte-identical to 0.9.4; only the header lines of `criticality_report_<well>.txt`
+changed wording.
+
+### Changed — `cascade-ltpltd --out` is now `--output`
+
+All three tools now name their output `--output`. The old `--out` still works
+(argparse accepts it as an abbreviation of `--output`), so existing scripts are
+unaffected. Its help text also now says `rates_*.tsv`, which is what `cascade`
+writes, instead of `rates_*.csv`.
+
+### Fixed — README
+
+- `cascade-ltpltd` examples now work (see above).
+- `--manufacturer` value for Cortical Labs is `cl`, not `cl1`.
+- `--sync_metrics` default is `core` (normalised correlogram area + Synchrony
+  Index), not `xcorr`.
+- β_fit range is xmin_D < D < xmin_D + 60 (fitted duration cut-off), not
+  `[t_min, t_min + 60]`.
+- New sections: *Citing CASCADE*, *Reproducing the published v0.8.0 results*
+  (`--simple_PL --simple_BR`), *Differences from the published article*.
+- Logo restored; self-test output, output-file list (`wave_templates_<well>.png`),
+  report and run-log descriptions, project structure and the `inspect_file`
+  command brought up to date; Clauset 2009, Marshall 2016, Kreuz 2013 and
+  Paiva 2010 added to the references.
+- `--test`, `--version` and `--citation` documented in the flag tables.
 
 ### Added — `--citation`
 
@@ -531,9 +558,8 @@ filtering, burst detection, avalanche detection, criticality metrics
 (τ, α, DCC, branching ratio, shape collapse), functional connectivity, spatial
 entropy, epoch comparison and LTP/LTD classification.
 
-[0.9.4]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.4
-[0.9.3]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.3
-[0.9.2]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.2
-[0.9.1]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.1
-[0.9.0]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.0
+[0.9.5]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.5
+[0.9.4]: https://github.com/FA387/cascade-mea/tree/v0.9.4
+[0.9.3]: https://github.com/FA387/cascade-mea/tree/v0.9.3
+[0.9.2]: https://github.com/FA387/cascade-mea/tree/v0.9.2
 [0.8.0]: https://github.com/FA387/cascade-mea/releases/tag/v0.8.0

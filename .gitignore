@@ -53,3 +53,6 @@ ltpltd_out/
 # ── Local development only ───────────────────────────────────────────────────────
 LOCAL_ONLY/
 .claude/
+
+# ── Claude Code notes (kept local) ──
+CLAUDE.md
