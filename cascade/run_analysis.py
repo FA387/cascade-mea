@@ -199,8 +199,9 @@ def main():
     io_group = ap.add_argument_group("Input / Output")
     io_group.add_argument("--input",
                     default=None,
-                    help="Path to the data file (.bxr or .h5). "
-                         "If omitted, CASCADE searches the current folder.")
+                    help="Path to the recording file (.bxr, .h5 or .csv). "
+                         "If omitted, CASCADE uses the first .bxr or .h5 file "
+                         "in the current folder.")
     io_group.add_argument("--manufacturer",
                     required=False, default=None,
                     choices=["3brain", "maxwell", "cl", "mcs", "axion"],

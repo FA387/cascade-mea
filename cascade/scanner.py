@@ -5,7 +5,8 @@ scanner.py
 CASCADE quick recording inspector.
 
 Reports duration, total channels, and active electrodes for a MEA file.
-Supports 3Brain (.bxr), Maxwell (.h5), and CASCADE spike CSV files.
+Supports all five manufacturers (3Brain .bxr; Maxwell, Cortical Labs and MCS .h5;
+Axion .csv) and plain spike CSV files.
 
 The key feature is --start and --dur: you can inspect any time window inside
 a recording. This is useful when a single file contains baseline + treatment:
@@ -19,11 +20,11 @@ a recording. This is useful when a single file contains baseline + treatment:
   # Post-treatment window (61 – 120 s)
   cascade-info --input recording.bxr --manufacturer 3brain --start 61 --dur 59
 
-  # Scan every MEA file in a folder
-  cascade-info --folder /data/recordings/ --manufacturer cl --ae 5
+  # Scan every recording of one manufacturer in a folder
+  cascade-info --input /data/recordings/ --manufacturer cl --ae 5
 
-Output is printed to the terminal and optionally saved as a CSV summary
-(useful when scanning a whole folder).
+Output is printed to the terminal and, with --output DIR, also saved as
+DIR/info_summary.tsv (one row per file).
 """
 
 import argparse
@@ -303,21 +304,61 @@ def scan_file(path: str, manufacturer: str, well: str, ae_per_min: float,
     return _scan_hdf5(path, manufacturer, well, ae_per_min, start_s, dur_s)
 
 
+# ── summary table ───────────────────────────────────────────────────────────────
+SUMMARY_NAME = "info_summary.tsv"
+
+
+def _summary_row(path: str, info: dict, start_s: float, ae_per_min: float) -> dict:
+    return {
+        "file":           os.path.basename(path),
+        "manufacturer":   info["manufacturer"],
+        "well":           info["well"],
+        "sampling_hz":    info.get("sampling_rate", ""),
+        "full_dur_s":     round(info["full_duration"], 3),
+        "window_start_s": start_s,
+        "window_dur_s":   round(info["window_dur"], 3),
+        "total_ch":       info["total_ch"],
+        "active_ch":      info["active_ch"],
+        "ae_per_min":     ae_per_min,
+    }
+
+
+def write_summary(rows: list, out_dir: str):
+    """Write the summary rows to <out_dir>/info_summary.tsv (folder created if needed)."""
+    if not out_dir or not rows:
+        return
+    if not _PANDAS:
+        print("pandas not available — skipping TSV export.")
+        return
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, SUMMARY_NAME)
+    pd.DataFrame(rows).to_csv(out_path, index=False, sep='\t')
+    print(f"Summary saved: {out_path}")
+
+
 # ── folder scan ─────────────────────────────────────────────────────────────────
-_MEA_EXTENSIONS = {".bxr", ".h5", ".hdf5"}
+# Only the manufacturer's own file type is scanned, so a mixed folder skips the
+# other devices' files instead of failing on each of them.
+_EXTENSIONS = {
+    "3brain":  {".bxr"},
+    "maxwell": {".h5", ".hdf5"},
+    "cl":      {".h5", ".hdf5"},
+    "mcs":     {".h5", ".hdf5"},
+    "axion":   {".csv"},
+}
 
 
 def scan_folder(folder: str, manufacturer: str, ae_per_min: float,
-                start_s: float, dur_s: float,
-                sr: float, out_csv: str = None):
+                start_s: float, dur_s: float, sr: float) -> list:
+    exts = _EXTENSIONS[manufacturer]
     files = sorted(
         os.path.join(folder, f)
         for f in os.listdir(folder)
-        if os.path.splitext(f)[1].lower() in _MEA_EXTENSIONS
+        if os.path.splitext(f)[1].lower() in exts
     )
     if not files:
-        print(f"No MEA files found in {folder}")
-        return
+        print(f"No {'/'.join(sorted(exts))} files found in {folder}")
+        return []
 
     print(f"\nScanning {len(files)} file(s) in: {folder}")
     print("=" * 60)
@@ -327,28 +368,11 @@ def scan_folder(folder: str, manufacturer: str, ae_per_min: float,
         try:
             info = scan_file(path, manufacturer, None, ae_per_min, start_s, dur_s, sr)
             _print_result(path, info)
-            rows.append({
-                "file":          os.path.basename(path),
-                "manufacturer":  info["manufacturer"],
-                "well":          info["well"],
-                "sampling_hz":   info.get("sampling_rate", ""),
-                "full_dur_s":    round(info["full_duration"], 3),
-                "window_start_s": start_s,
-                "window_dur_s":  round(info["window_dur"], 3),
-                "total_ch":      info["total_ch"],
-                "active_ch":     info["active_ch"],
-                "ae_per_min":    ae_per_min,
-            })
+            rows.append(_summary_row(path, info, start_s, ae_per_min))
         except Exception as e:
-            print(f"  ERROR: {os.path.basename(path)} — {e}\n")
-
-    if out_csv and rows:
-        if not _PANDAS:
-            print("pandas not available — skipping TSV export.")
-        else:
-            import pandas as pd
-            pd.DataFrame(rows).to_csv(out_csv, index=False, sep='\t')
-            print(f"Summary saved: {out_csv}")
+            print(f"  SKIPPED: {os.path.basename(path)} — not readable as "
+                  f"--manufacturer {manufacturer} ({e})\n")
+    return rows
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────
@@ -363,8 +387,8 @@ def main():
             "when one file contains baseline + treatment:\n\n"
             "  cascade-info --input recording.bxr --start 0  --dur 60   # baseline\n"
             "  cascade-info --input recording.bxr --start 61 --dur 59   # post-treatment\n\n"
-            "Scan a whole folder:\n"
-            "  cascade-info --folder /data/recordings/ --ae 5 --output summary.tsv"
+            "Scan a whole folder (give a folder to --input):\n"
+            "  cascade-info --input /data/recordings/ --manufacturer cl --ae 5 --output info_out"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -377,14 +401,14 @@ def main():
                     help="MEA manufacturer. 3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv)")
 
     # ── input ──────────────────────────────────────────────────────────────────
-    src = ap.add_argument_group("Input  (use --input OR --folder)")
+    src = ap.add_argument_group("Input")
     src.add_argument("--input",
                      default=None, metavar="PATH",
-                     help="Path to a single .bxr, .h5, or .csv file.")
-    src.add_argument("--folder",
-                     default=None, metavar="DIR",
-                     help="Folder to scan. All .bxr and .h5 files found will "
-                          "be reported.")
+                     help="A recording file (.bxr, .h5 or .csv), or a folder: every "
+                          "file of the --manufacturer's type in it is scanned "
+                          "(3brain .bxr; maxwell/cl/mcs .h5; axion .csv).")
+    # pre-0.9.5 spelling of a folder --input; hidden, kept so old scripts still run
+    src.add_argument("--folder", default=None, help=argparse.SUPPRESS)
     src.add_argument("--well",
                      default=None, metavar="NAME",
                      help="Well or stream name (e.g. Well_A1 for 3Brain, "
@@ -412,9 +436,10 @@ def main():
     # ── output ─────────────────────────────────────────────────────────────────
     out = ap.add_argument_group("Output")
     out.add_argument("--output",
-                     default=None, metavar="CSV",
-                     help="(Folder mode only) Save a summary CSV to this path. "
-                          "Example: --output scan_summary.csv")
+                     default=None, metavar="DIR",
+                     help=f"Output folder: saves the summary table as {SUMMARY_NAME} "
+                          "(one row per file). Created automatically if it does not "
+                          "exist. Default: print to the terminal only.")
     out.add_argument("--sr",
                      type=float, default=None, metavar="HZ",
                      help="Sampling rate in Hz. Only needed when reading a CSV "
@@ -422,28 +447,28 @@ def main():
 
     args = ap.parse_args()
 
-    if args.input is None and args.folder is None:
-        ap.error("Provide either --input or --folder.")
+    if args.folder:
+        if args.input:
+            ap.error("--folder is the old spelling of --input; give only --input.")
+        args.input = args.folder
+    if args.input is None:
+        ap.error("--input is required (a recording file or a folder).")
 
-    if args.input and args.folder:
-        ap.error("Provide either --input or --folder, not both.")
-
-    if args.input:
-        if not os.path.isfile(args.input):
-            print(f"ERROR: file not found: {args.input}", file=sys.stderr)
-            sys.exit(1)
+    if os.path.isdir(args.input):
+        rows = scan_folder(args.input, args.manufacturer, args.ae, args.start,
+                           args.dur, args.sr)
+    elif os.path.isfile(args.input):
         info = scan_file(args.input, args.manufacturer, args.well, args.ae,
                          args.start, args.dur, args.sr)
         print("=" * 60)
         _print_result(args.input, info)
         print("=" * 60)
-
+        rows = [_summary_row(args.input, info, args.start, args.ae)]
     else:
-        if not os.path.isdir(args.folder):
-            print(f"ERROR: folder not found: {args.folder}", file=sys.stderr)
-            sys.exit(1)
-        scan_folder(args.folder, args.manufacturer, args.ae, args.start, args.dur,
-                    args.sr, out_csv=args.output)
+        print(f"ERROR: not found: {args.input}", file=sys.stderr)
+        sys.exit(1)
+
+    write_summary(rows, args.output)
 
 
 if __name__ == "__main__":

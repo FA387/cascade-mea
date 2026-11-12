@@ -20,6 +20,22 @@ All three tools now name their output `--output`. The old `--out` still works
 unaffected. Its help text also now says `rates_*.tsv`, which is what `cascade`
 writes, instead of `rates_*.csv`.
 
+### Changed — `cascade-info`: `--input` takes a folder, `--output` is a folder
+
+`--output` now means an output folder in all three tools.
+
+- `--input` accepts a recording file **or a folder**. A folder is scanned for the
+  `--manufacturer`'s own file type (3brain `.bxr`; maxwell/cl/mcs `.h5`; axion `.csv`),
+  so Axion folders can now be scanned and other manufacturers' files are skipped.
+  `--folder` is no longer documented; it still works as a hidden alias of `--input`.
+- `--output DIR` saves the summary table as `DIR/info_summary.tsv`, for a single file
+  as well as a folder. Previously it took a file path, worked in folder mode only, and
+  was silently ignored with `--input`. **Scripts that passed `--output scan.tsv` now get
+  a folder named `scan.tsv`** containing `info_summary.tsv`.
+- Without `--output` nothing is written, as before.
+- `cascade --input` help now lists `.csv` and says the auto-search uses the first
+  `.bxr`/`.h5` file in the current folder.
+
 ### Fixed — README
 
 - `cascade-ltpltd` examples now work (see above).
