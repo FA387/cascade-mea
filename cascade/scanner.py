@@ -410,7 +410,8 @@ def main():
     g.add_argument("--well",
                      default=None, metavar="NAME",
                      help="Well or stream name (e.g. Well_A1 for 3Brain, "
-                          "data0000 for Maxwell). Default: first available.")
+                          "data0000 for Maxwell). Default: first available; "
+                          "for Axion, all wells merged.")
     g.add_argument("--sr",
                      type=float, default=None, metavar="HZ",
                      help="Sampling rate in Hz. Only needed when reading a CSV "

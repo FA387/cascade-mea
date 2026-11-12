@@ -178,7 +178,8 @@ def main():
     g.add_argument("--well",
                     default=None,
                     help="Well or stream name to analyse (e.g. Well_A1 for 3Brain, "
-                         "data0000 for Maxwell). Default: first available well.")
+                         "data0000 for Maxwell). Default: first available well; "
+                         "for Axion, all wells merged.")
     g.add_argument("--output",
                     default="mea_out",
                     help="Output folder for all figures and data files. "
@@ -222,7 +223,8 @@ def main():
                          "typically picking up mechanical artefacts or electrical "
                          "interference rather than real action potentials. "
                          "Set to 0 to disable. Recommended starting value: 200 (µV). "
-                         "Supported: CL1, 3Brain, Maxwell (if stored), MCS, Axion "
+                         "Supported: CL1, 3Brain, Maxwell (single-peak value, if "
+                         "stored), MCS, Axion "
                          "— all in µV. (default: 0 = off)")
 
     g = ap.add_argument_group("3 Analysis — firing rate and connectivity")
@@ -875,6 +877,8 @@ def main():
                        well_label, svg, jpg)
 
     # ── epoch comparison (optional) ────────────────────────────────────────────
+    if bool(args.epochA) != bool(args.epochB):
+        say("Epoch comparison needs both --epochA and --epochB; skipped.", "[WARN]", YEL)
     if args.epochA and args.epochB:
         step("Epoch comparison", enabled=v)
         epA = _parse_epoch(args.epochA)

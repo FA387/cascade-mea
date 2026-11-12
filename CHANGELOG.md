@@ -46,6 +46,13 @@ of "Spike filtering" (it sets the firing-rate bin, it filters nothing) and
 `--simple_PL`/`--simple_BR` share a "reproducing v0.8.0" group. Layout only: every
 flag's name, default and behaviour is unchanged. The short `-h` is removed; use `--help`.
 
+### Fixed — help text and a silent skip
+
+- `--epochA` without `--epochB` (or the reverse) was silently ignored; it now prints a
+  warning that the epoch comparison was skipped.
+- `--well` help (cascade, cascade-info) now says that Axion merges all wells when no
+  well is given; `--max_amplitude` help notes that Maxwell stores a single-peak value.
+
 ### Fixed — README
 
 - `cascade-ltpltd` examples now work (see above).

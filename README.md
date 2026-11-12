@@ -123,8 +123,8 @@ cascade-info --manufacturer [manufacturer] --input [input_recording] --start 0 -
 # Active-electrode filter (channels with ≥5 spikes/min)
 cascade-info --manufacturer [manufacturer] --input [input_recording] --ae 5
 
-# Batch audit: scan folder, save summary (duration, channels, active count per file)
-cascade-info --folder [input_directory] --manufacturer [manufacturer] --ae 5 --output [output_summary.tsv]
+# Batch audit: give a folder to --input; saves one summary row per file to [output_dir]/info_summary.tsv
+cascade-info --manufacturer [manufacturer] --input [input_directory] --ae 5 --output [output_dir]
 ```
 
 ### cascade
@@ -322,7 +322,7 @@ Records the exact command (and therefore every parameter), the CASCADE version, 
 
 ### cascade-info output
 
-Results printed to terminal. With `--output [file.tsv]` in folder mode, saves summary table.
+Results are printed to the terminal. With `--output [output_dir]`, the same numbers are saved as `[output_dir]/info_summary.tsv`, one row per file (file, manufacturer, well, sampling rate, duration, window, total and active channels).
 
 ### cascade-ltpltd output
 
@@ -338,41 +338,32 @@ ltpltd_out/
 
 ## All flags
 
-### cascade-info
+Flags are grouped by workflow step, in the same order as `--help`:
 
-| Flag | Default | Description |
-|---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` |
-| `--input` | — | Path to `.bxr`, `.h5`, or `.csv` file |
-| `--folder` | — | Folder to scan (all `.bxr` and `.h5` files) |
-| `--well` | first | Well or stream name |
-| `--start` | `0` s | Window start (seconds) |
-| `--dur` | full | Window duration (seconds) |
-| `--ae` | off | Active-electrode filter: ≥N spikes/min |
-| `--output` | — | Save summary to this TSV path (folder mode only) |
-| `--sr` | — | Sampling rate Hz (for plain CSV input only) |
-| `--version` / `--citation` | — | Print the version / how to cite CASCADE, and exit |
+| Step | What it decides |
+|---|---|
+| **1. Setup** | Which file, which device, and where the results go |
+| **2. Preprocessing** | Which part of the recording and which channels are trusted |
+| **3. Analysis** | The parameters and assumptions of each calculation |
+| **4. Output** | Extra figure formats and terminal messages |
+| **5. Misc** | Information only; nothing is analysed |
+
+Most runs only need step 1. Add step 2 filters for noisy recordings, and change step 3 only with a reason. Report any non-default value in your methods.
+
+All three tools write to an `--output` folder. `cascade` and `cascade-info` read with `--input`; `cascade-ltpltd` compares two results with `--baseline` and `--measure`.
 
 ### cascade
 
-**General**
+#### 1. Setup — input and output
 
 | Flag | Default | Description |
 |---|---|---|
-| `--test` | — | Run the 14 built-in self-tests on synthetic data (no recording needed) |
-| `--version` | — | Print the CASCADE version and exit |
-| `--citation` | — | Print how to cite CASCADE (text and BibTeX) and exit |
-
-**Input/Output**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` |
-| `--input` | auto-search | Path to `.bxr`, `.h5`, or `.csv` file |
-| `--well` | first | Well or stream name |
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` (see [Supported manufacturers](#supported-manufacturers)) |
+| `--input` | auto-search | Path to the `.bxr`, `.h5`, or `.csv` file. If omitted, the first `.bxr` or `.h5` file in the current folder is used |
+| `--well` | first | Well or stream name. Axion: all wells are merged unless a well is given |
 | `--output` | `mea_out` | Output folder |
-| `--svg` / `--jpg` | off | Save figures as SVG/JPG in addition to PNG |
-| `--verbose` | off | Print progress to terminal |
+
+#### 2. Preprocessing — which data and which spikes to trust
 
 **Recording window**
 
@@ -385,60 +376,26 @@ ltpltd_out/
 
 | Flag | Default | Description |
 |---|---|---|
-| `--ae` | off | Active-electrode: keep channels with ≥N spikes/min |
+| `--ae` | off | Active-electrode filter: keep channels with ≥N spikes/min |
 | `--max_rate` | off | Noise filter: remove if rate >N spikes/min (try `1000`) |
 | `--max_rpv` | off | Noise filter: remove if >N% of ISIs <2 ms (try `1.0`) |
-| `--max_amplitude` | off | Noise filter: remove if any spike exceeds N µV peak-to-peak (try `200`). Supported by CL1, 3Brain, Maxwell, MCS, and Axion (all in µV). |
-| `--bin` | `1.0` | Bin size for rate computation (seconds) |
+| `--max_amplitude` | off | Noise filter: remove if any spike exceeds N µV peak-to-peak (try `200`). All five loaders give µV; Maxwell stores a single-peak value rather than peak-to-peak, and only when the file contains amplitudes |
 
-**Avalanche detection**
+#### 3. Analysis — parameters and assumptions of each calculation
 
-| Flag | Default | Description |
-|---|---|---|
-| `--ava_size` | `2` | Minimum avalanche size (spikes). Single spikes are not avalanches. |
-| `--ava_dur` | `1` | Minimum avalanche duration (bins). Default=1 allows synchronous bursts. |
-| `--aval_dt` | inferred | Avalanche bin width (seconds); auto = mean ISI clipped to 1–50 ms |
-| `--perc` | off | Population activity percentile threshold. `0.25` is the default of the Habibollahi et al. (2023) reference code (their paper reports 40% of the median) |
-
-**Criticality metrics**
+**Firing rate and connectivity**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
-| `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
-| `--simple_PL` | off | Use the power-law normalisation of v0.8.0–v0.9.0 (biased below ~1,000 avalanches). Use **only** to regenerate previously published numbers; add `--simple_BR` as well to reproduce v0.8.0 exactly |
-| `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
-| `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
-| `--pl_exclude` | off | Also trim the upper tail before fitting, with the `EXCLUDE` step of the Habibollahi et al. (2023) Python reference code (the MATLAB original differs). For comparison with that pipeline only: add `--simple_PL` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
-| `--skip_rare_sizes` | off | Exclude singletons from log-log fit (does not affect MLE) |
-| `--skip_rare_durations` | off | Exclude singletons from log-log fit (does not affect MLE) |
+| `--bin` | `1.0` | Bin size for firing rates, rate heatmaps and connectivity (seconds) |
+| `--conn_thr` | `0.3` | Pearson \|r\| threshold for a functional connection |
 
-**Shape collapse**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--sc_Dmin` | `4` | Minimum duration (bins) in shape collapse |
-| `--sc_Dmax` | `20` | Maximum duration (bins) in shape collapse |
-
-**Branching ratio**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--simple_BR` | off | Report the simple single-lag branching ratio of v0.8.0–v0.9.3 instead of the MR estimator. Biased toward 0 under subsampling; use **only** to reproduce previously published numbers; add `--simple_PL` as well to reproduce v0.8.0 exactly |
-| `--br_tmax` | `2000` | Longest lag (ms) for the MR estimator. Should span several autocorrelation times; the report warns when it does not |
-
-**Burst detection**
+**Network bursts**
 
 | Flag | Default | Description |
 |---|---|---|
 | `--burst_min_spikes` | `5` | Minimum spikes per burst event |
-| `--burst_max_gap` | `0.1` | Maximum inter-spike gap within burst (seconds) |
-
-**Connectivity**
-
-| Flag | Default | Description |
-|---|---|---|
-| `--conn_thr` | `0.3` | Pearson \|r\| threshold for functional connection |
+| `--burst_max_gap` | `0.1` | Maximum inter-spike gap within a burst (seconds) |
 
 **Synchrony**
 
@@ -451,7 +408,41 @@ ltpltd_out/
 | `--sync_sigma` | = window | Gaussian σ in **ms** for the Synchrony Index |
 | `--sync_max_channels` | `64` | Channel cap for the O(N²) measures; `0` = no cap |
 
-**Entropy**
+**Avalanche detection**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--ava_size` | `2` | Minimum avalanche size (spikes). Single spikes are not avalanches. |
+| `--ava_dur` | `1` | Minimum avalanche duration (bins). Default=1 allows synchronous bursts. |
+| `--aval_dt` | inferred | Avalanche bin width (seconds); auto = mean ISI clipped to 1–50 ms |
+| `--perc` | off | Population activity percentile threshold. `0.25` is the default of the Habibollahi et al. (2023) reference code (their paper reports 40% of the median) |
+
+**Power-law fit (τ, α, DCC)**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--burst_min` | `12` | Upper xmin search limit (size exponent fit) |
+| `--t_min` | `4` | Upper xmin search limit (duration exponent fit) |
+| `--pl_xmin_S` | auto | Fix the size-fit xmin instead of searching. τ, DCC, SCE and the plot use it; the automatic fit is still written to the report |
+| `--pl_xmin_D` | auto | Fix the duration-fit xmin instead of searching (α, β_fit, DCC) |
+| `--pl_exclude` | off | Also trim the upper tail before fitting, with the `EXCLUDE` step of the Habibollahi et al. (2023) Python reference code (the MATLAB original differs). For comparison with that pipeline only: add `--simple_PL` to match its code exactly. The untrimmed fit is still reported — see `CHANGELOG.md` |
+| `--skip_rare_sizes` | off | Exclude sizes seen only once from the log-log plot line (does not affect the MLE exponent) |
+| `--skip_rare_durations` | off | Exclude durations seen only once from the log-log plot line (does not affect the MLE exponent) |
+
+**Shape collapse**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--sc_Dmin` | `4` | Minimum duration (bins) in shape collapse |
+| `--sc_Dmax` | `20` | Maximum duration (bins) in shape collapse |
+
+**Branching ratio**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--br_tmax` | `2000` | Longest lag (ms) for the MR estimator. Should span several autocorrelation times; the report warns when it does not |
+
+**Entropy and active area**
 
 | Flag | Default | Description |
 |---|---|---|
@@ -464,19 +455,85 @@ ltpltd_out/
 | `--epochA` | off | Epoch A as `start,duration` (e.g. `0,60` = 0–60 s). Both A and B required. |
 | `--epochB` | off | Epoch B as `start,duration` (e.g. `120,60` = 120–180 s). Both A and B required. |
 
-### cascade-ltpltd
+**Reproducing v0.8.0 (not for new analyses)** — see [Reproducing the published v0.8.0 results](#reproducing-the-published-v080-results)
 
 | Flag | Default | Description |
 |---|---|---|
-| `--baseline` | required | Path to `rates_*.tsv` from baseline CASCADE run |
+| `--simple_PL` | off | Use the power-law normalisation of v0.8.0–v0.9.0 (biased below ~1,000 avalanches) |
+| `--simple_BR` | off | Report the simple single-lag branching ratio of v0.8.0–v0.9.3 instead of the MR estimator (biased toward 0 under subsampling) |
+
+Use both together to reproduce v0.8.0 exactly. Each prints a warning.
+
+#### 4. Output — figures and terminal
+
+| Flag | Default | Description |
+|---|---|---|
+| `--svg` / `--jpg` | off | Save figures as SVG/JPG in addition to PNG |
+| `--verbose` | off | Print progress to terminal |
+
+#### 5. Misc — information only
+
+| Flag | Description |
+|---|---|
+| `--help` | Show all flags and exit |
+| `--version` | Print the CASCADE version and exit |
+| `--citation` | Print how to cite CASCADE (text and BibTeX) and exit |
+| `--test` | Run the 14 built-in self-tests on synthetic data (no recording needed) |
+
+### cascade-info
+
+#### 1. Setup — input and output
+
+| Flag | Default | Description |
+|---|---|---|
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, or `axion` |
+| `--input` | required | A recording file, **or a folder**: every file of the manufacturer's type in it is scanned (3brain `.bxr`; maxwell/cl/mcs `.h5`; axion `.csv`) |
+| `--well` | first | Well or stream name. Axion: all wells are merged unless a well is given |
+| `--sr` | — | Sampling rate in Hz (only for a plain CSV with a frame column instead of time) |
+| `--output` | off | Output folder; saves `info_summary.tsv` (one row per file). Without it, results are only printed |
+
+#### 2. Preprocessing — window and active channels
+
+| Flag | Default | Description |
+|---|---|---|
+| `--start` | `0` s | Window start (seconds) |
+| `--dur` | full | Window duration (seconds) |
+| `--ae` | `0` | Count channels with ≥N spikes/min as active (counted only; nothing is removed) |
+
+#### 5. Misc — information only
+
+| Flag | Description |
+|---|---|
+| `--help` / `--version` / `--citation` | Show all flags / the version / how to cite CASCADE, and exit |
+
+### cascade-ltpltd
+
+#### 1. Setup — input and output
+
+| Flag | Default | Description |
+|---|---|---|
+| `--baseline` | required | Path to `rates_*.tsv` from the baseline CASCADE run |
 | `--measure` | required | Path(s) to one or more `rates_*.tsv` files to compare |
-| `--threshold` | `20` | LTP/LTD threshold (% change from baseline) |
 | `--output` | `ltpltd_out` | Output folder |
+
+#### 3. Analysis — LTP/LTD classification
+
+| Flag | Default | Description |
+|---|---|---|
+| `--threshold` | `20` | LTP/LTD threshold (% change from baseline) |
+
+#### 4. Output — figures and terminal
+
+| Flag | Default | Description |
+|---|---|---|
 | `--svg` / `--jpg` | off | Save figures as SVG/JPG |
 | `--verbose` | off | Print per-electrode table to terminal |
-| `--version` / `--citation` | — | Print the version / how to cite CASCADE, and exit |
 
-All three tools name their output folder or file `--output`; `cascade` and `cascade-info` read one recording with `--input`, while `cascade-ltpltd` takes two kinds of input, `--baseline` and `--measure`.
+#### 5. Misc — information only
+
+| Flag | Description |
+|---|---|
+| `--help` / `--version` / `--citation` | Show all flags / the version / how to cite CASCADE, and exit |
 
 ---
 
