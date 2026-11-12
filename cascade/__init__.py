@@ -6,5 +6,5 @@ from multiple manufacturers.
 """
 
 __version__ = "0.9.4"
-__author__ = "Forbes Avila, Jin Kim, Jong-Chan Park, Hyun-Su Lee, Sun-Hyun Park"
+__author__ = "Forbes Avila, Jin Kim, Jong-Chan Park, Rian Kang, Hyun-Su Lee, Sun-Hyun Park"
 __license__ = "Apache-2.0"

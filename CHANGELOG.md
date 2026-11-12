@@ -16,6 +16,7 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   doi:10.1093/bioinformatics/btag570) as text and BibTeX, plus the running version.
 - `CITATION.cff` gains a `preferred-citation` block for the article.
 - `cascade_run.log` now records the CASCADE version that produced the results.
+- Rian Kang added as an author (LICENSE, `CITATION.cff`, `__author__`), matching the article.
 
 ### Fixed — version string had four hand-typed copies
 
