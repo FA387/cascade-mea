@@ -80,7 +80,8 @@ from cascade.loaders.axion_loader     import AxionLoader
 from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics
 from cascade.core.bursts        import compute_burst_metrics, compute_active_area
 from cascade.core.avalanche     import infer_dt, compute_avalanches, counts_per_dt
-from cascade.core.criticality   import compute_exponents, compute_branching_ratio, shape_collapse
+from cascade.core.criticality   import (compute_exponents, compute_branching_ratio,
+                                        compute_branching_ratio_mr, shape_collapse)
 from cascade.core.connectivity  import compute_connectivity, summarize_connectivity
 from cascade.core.entropy       import compute_entropy
 from cascade.core.synchrony     import compute_synchrony, synchrony_to_dataframe
@@ -89,7 +90,7 @@ from cascade.core.plots         import (plot_raster, plot_rate_heatmap, plot_pop
                                         plot_waveforms, plot_corr_heatmap, plot_degree_histogram,
                                         plot_avalanche_distributions, plot_loglog_linearization,
                                         plot_shape_collapse, plot_entropy_curve, plot_epoch_compare,
-                                        plot_cross_correlogram)
+                                        plot_cross_correlogram, plot_branching_mr)
 from cascade.utils.common       import say, banner, step, CYAN, GRN, YEL, RED
 from cascade.utils.io           import write_csv, write_tsv, write_criticality_report, write_run_log, _Tee
 
@@ -185,7 +186,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    ap.add_argument("--version", action="version", version="CASCADE v0.9.3")
+    ap.add_argument("--version", action="version", version="CASCADE v0.9.4")
     ap.add_argument("--test", action="store_true",
                     help="Run the built-in self-test with synthetic data. "
                          "No recording file required.")
@@ -358,6 +359,23 @@ def main():
                     help="Maximum avalanche duration (in bins) to include in the "
                          "shape collapse analysis. (default: 20)")
 
+    br_group = ap.add_argument_group("Branching Ratio")
+    br_group.add_argument("--simple_BR",
+                    action="store_true",
+                    help="Report the simple single-lag branching ratio of "
+                         "CASCADE <= 0.9.3 (regression of mean N(t+1) on N(t)) "
+                         "instead of the multi-lag MR estimator of Wilting & "
+                         "Priesemann 2018. The simple estimate is biased toward 0 "
+                         "when only part of the network is recorded, as on every "
+                         "MEA. Use ONLY to reproduce previously published numbers. "
+                         "(default: off = MR estimator)")
+    br_group.add_argument("--br_tmax",
+                    type=float, default=2000.0,
+                    help="Longest lag (ms) for the MR estimator: lags k = 1 … "
+                         "br_tmax/dt bins (at least 10, at most a tenth of the "
+                         "recording). Should span several autocorrelation times; "
+                         "the report warns when it does not. (default: 2000)")
+
     # ── burst detection ────────────────────────────────────────────────────────
     burst_group = ap.add_argument_group("Burst Detection")
     burst_group.add_argument("--burst_min_spikes",
@@ -462,7 +480,7 @@ def main():
     jpg = args.jpg
     v   = args.verbose
 
-    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.3", enabled=v)
+    banner("CASCADE  •  Criticality Avalanche Spike Cross-platform Analysis Detection Engine  •  v0.9.4", enabled=v)
 
     # ── find file ──────────────────────────────────────────────────────────────
     path = args.input
@@ -793,10 +811,32 @@ def main():
         exclude_singletons=args.skip_rare_durations,
         save_svg=svg, save_jpg=jpg)
 
-    # branching ratio
+    # branching ratio: MR estimator (default) and the simple single-lag one;
+    # both are always computed and written, --simple_BR picks which is "BR"
     counts, _ = counts_per_dt(all_spikes, dt)
-    br, br_h, br_pts = compute_branching_ratio(counts)
+    br_simple, br_h, br_pts = compute_branching_ratio(counts)
     write_tsv(br_pts, f"{args.output}/branching_points_{well_label}.tsv")
+    mr = compute_branching_ratio_mr(counts, dt, tmax_ms=args.br_tmax)
+    write_tsv(mr["rk_df"], f"{args.output}/branching_mr_{well_label}.tsv")
+    plot_branching_mr(mr, f"{args.output}/branching_mr_{well_label}.png",
+                      well_label, svg, jpg)
+    br = br_simple if args.simple_BR else mr["m"]
+    if args.simple_BR:
+        say("--simple_BR: reporting the single-lag branching ratio (biased under "
+            "subsampling). Valid only for reproducing previously published numbers.",
+            "[WARN]", YEL, enabled=True)
+    else:
+        if not mr["rk_positive"]:
+            say("MR branching ratio: r_k are not significantly > 0 — no measurable "
+                "propagation, m is not meaningful.", "[WARN]", YEL, enabled=True)
+        if not mr["consistent"]:
+            say(f"MR branching ratio: exponential (tau={mr['tau_ms']:.1f} ms) and "
+                f"exponential+offset (tau={mr['tau_offset_ms']:.1f} ms) fits disagree "
+                f"— possible slow drift / non-stationarity; check "
+                f"branching_mr_{well_label}.png.", "[WARN]", YEL, enabled=True)
+        if not mr["window_ok"] and np.isfinite(mr["tau_ms"]):
+            say(f"MR branching ratio: lag window {mr['tmax_ms']:.0f} ms < 3 x tau "
+                f"({mr['tau_ms']:.0f} ms); raise --br_tmax.", "[WARN]", YEL, enabled=True)
 
     # shape collapse
     Dmin_eff = max(args.sc_Dmin, args.ava_dur)
@@ -823,6 +863,9 @@ def main():
         dcc          = exp_metrics.get("dcc", np.nan),
         br           = br,
         br_intercept = br_h,
+        br_simple    = br_simple,
+        br_mr        = mr,
+        simple_br    = args.simple_BR,
         sc_beta      = sc_beta,
         sce          = sce,
         sc_minerr    = sc_minerr,

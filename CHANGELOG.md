@@ -7,6 +7,57 @@ CASCADE adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.9.4] — 2026-11-12
+
+Replaces the branching ratio with the estimator the CASCADE paper cites. **BR values
+change.** No other output changes: every TSV, and every line of the criticality
+report outside the branching-ratio block, is identical to v0.9.3.
+
+### Changed — branching ratio is now the multi-lag (MR) estimator of Wilting & Priesemann (2018)
+
+v0.8.0–v0.9.3 labelled BR "Wilting & Priesemann 2018" but computed a simple
+single-lag regression of mean N(t+1) on N(t), one point per distinct N(t),
+unweighted. That is the conventional estimator Wilting & Priesemann show is biased
+toward 0 under subsampling — and an MEA always subsamples the network. It was also
+unstable: rounding dt to 1 µs moved 3Brain from 0.534 to 0.607.
+
+BR is now m from the MR estimator, as described in Habibollahi et al. (2023, Eq. 7):
+regress a(t+k) on a(t) for k = 1 … kmax, fit r_k = b·m^k. Validated against the
+`mrestimator` toolbox (Spitzner et al. 2021) on all five sample recordings: r_k agree
+to 1e-16 and m, b and the offset-fit m to 6 decimals. No new dependency.
+
+| sample | v0.9.3 BR (simple) | v0.9.4 BR (MR m) | b | τ (ms) | checks |
+|---|---:|---:|---:|---:|---|
+| 3Brain | 0.534 | 0.505 | 1.19 | 9.1 | pass |
+| Axion | 0.962 | 0.848 | 1.17 | 89.4 | pass |
+| CL1 | 0.409 | 0.264 | 1.74 | 37.6 | pass |
+| MCS | 0.658 | 0.972 | 1.08 | 481 | offset fit disagrees |
+| MaxWell | −0.0004 | 0.988 | 0.04 | 302 | offset fit disagrees |
+
+The report also gives b (subsampling factor), τ = −dt/ln m (autocorrelation time,
+independent of dt), the lag window, and three checks, each also printed as `[WARN]`
+when it fails:
+- **r_1 > 0**: lag-1 slope significant against uncorrelated activity
+  (z = r_1·√(T−1), p < 0.05); fails on white noise.
+- **exponential vs exponential+offset**: τ within ±50 %. They disagree under slow
+  drift or recurring bursts, as on MCS and MaxWell, where r_k turns negative at long
+  lags (see the plot). Treat m ≈ 1 there with caution.
+- **window ≥ 3 τ**: the lag window must span the decay; raise `--br_tmax` if not.
+
+New outputs: `branching_mr_<well>.tsv` (r_k per lag with both fits) and
+`branching_mr_<well>.png`. `branching_points_<well>.tsv` is still written.
+
+New flags:
+- `--simple_BR` reports the old single-lag value. With `--legacy_powerlaw` it
+  reproduces v0.8.0 numbers exactly. Use only for previously published results.
+- `--br_tmax` (default 2000 ms) sets the longest lag.
+
+Self-test: new test 12 simulates a branching process (m = 0.9) recorded at 5 %
+subsampling; MR must recover m within 0.05 and the simple estimate must stay below
+0.5 (it gives ≈ 0.2). 14 tests.
+
+---
+
 ## [0.9.3] — 2026-11-12
 
 Adds Habibollahi's upper-tail trimming as an opt-in flag. No default output changes: without `--pl_exclude`, every output is identical to v0.9.2.
@@ -428,6 +479,7 @@ filtering, burst detection, avalanche detection, criticality metrics
 (τ, α, DCC, branching ratio, shape collapse), functional connectivity, spatial
 entropy, epoch comparison and LTP/LTD classification.
 
+[0.9.4]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.4
 [0.9.3]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.3
 [0.9.2]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.2
 [0.9.1]: https://github.com/FA387/cascade-mea/releases/tag/v0.9.1

@@ -347,6 +347,30 @@ def plot_shape_collapse(details: dict,
     plt.close(fig)
 
 
+def plot_branching_mr(mr: dict, out: str, label: str = "",
+                      save_svg: bool = False, save_jpg: bool = False):
+    """r_k against lag with the exponential and exponential+offset MR fits."""
+    df = mr.get("rk_df")
+    if df is None or df.empty:
+        return
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(df["lag_ms"], df["r_k"], "o", ms=3, color="0.35", label="r_k")
+    if np.isfinite(mr.get("m", np.nan)):
+        ax.plot(df["lag_ms"], df["fit_exponential"], "-", lw=1.5, color="#1f77b4",
+                label=f"b·m^k   m = {mr['m']:.4f}, τ = {mr['tau_ms']:.1f} ms")
+    if np.isfinite(mr.get("m_offset", np.nan)):
+        ax.plot(df["lag_ms"], df["fit_exp_offset"], "--", lw=1.2, color="#d62728",
+                label=f"with offset   m = {mr['m_offset']:.4f}")
+    ax.axhline(0, color="0.7", lw=0.8)
+    ax.set_xlabel("Lag  k·dt  (ms)")
+    ax.set_ylabel("Regression slope  r_k")
+    ax.set_title(f"Branching ratio (MR estimator) — {label}")
+    ax.legend(fontsize=8, frameon=False)
+    fig.tight_layout()
+    save_fig(fig, out, save_svg, save_jpg)
+    plt.close(fig)
+
+
 # ── Entropy curve ──────────────────────────────────────────────────────────────
 def plot_entropy_curve(ent_df: pd.DataFrame,
                        out: str, label: str, save_svg: bool = False, save_jpg: bool = False):

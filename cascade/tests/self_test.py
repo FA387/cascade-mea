@@ -346,6 +346,31 @@ def _test_criticality(ava_df, dt: float, all_t: np.ndarray):
         assert br is not None
 
 
+def _test_branching_mr():
+    """
+    Wilting & Priesemann (2018): a branching process with known m, recorded
+    through 5 % subsampling. The MR estimator must recover m; the simple
+    single-lag estimate (--simple_BR) is biased toward 0 by the subsampling.
+    """
+    from cascade.core.criticality import compute_branching_ratio_mr, compute_branching_ratio
+
+    rng = np.random.default_rng(7)
+    TRUE_M, h, T = 0.9, 10.0, 20000
+    A = np.empty(T)
+    A[0] = h / (1.0 - TRUE_M)
+    for t in range(1, T):
+        A[t] = rng.poisson(TRUE_M * A[t - 1] + h)
+    n = rng.binomial(A.astype(int), 0.05)
+
+    mr = compute_branching_ratio_mr(n, dt=0.001, tmax_ms=100.0)
+    assert abs(mr["m"] - TRUE_M) < 0.05, f"MR m={mr['m']:.4f}, true {TRUE_M}"
+    assert mr["rk_positive"] and mr["consistent"] and mr["window_ok"], (
+        f"MR checks failed on a stationary process: {mr}")
+    simple = compute_branching_ratio(n)[0]
+    assert simple < 0.5, (
+        f"simple BR={simple:.4f} should be biased far below m={TRUE_M} at 5 % sampling")
+
+
 def _test_connectivity(rate_df):
     from cascade.core.connectivity import compute_connectivity
     C, ch_ids = compute_connectivity(rate_df)
@@ -430,13 +455,16 @@ def run_self_test() -> int:
         ava_df, dt, all_t = ava_result
         run("Criticality metrics (tau, alpha, DCC, BR)", _test_criticality, ava_df, dt, all_t)
 
-    # 12 — connectivity
+    # 12 — branching ratio under subsampling (regression guard)
+    run("Branching ratio (MR estimator, subsampled)", _test_branching_mr)
+
+    # 13 — connectivity
     if rate_df is None:
         _skip("Functional connectivity", "spike binning failed")
     else:
         run("Functional connectivity", _test_connectivity, rate_df)
 
-    # 13 — entropy
+    # 14 — entropy
     run("Spatial entropy", _test_entropy, rec)
 
     print(sep)

@@ -7,7 +7,7 @@ References
 ----------
 Habibollahi et al. (2022)  – tplfit MLE method, DCC definition
 Beggs & Plenz (2003)       – neuronal avalanche framework
-Wilting & Priesemann (2018)– branching ratio estimation
+Wilting & Priesemann (2018)– branching ratio (multi-lag MR estimator)
 Sethna (2001), Friedman et al. (2012) – shape collapse
 """
 
@@ -312,9 +312,13 @@ def _compute_beta_fit(sizes: np.ndarray,
 # ── Branching ratio ────────────────────────────────────────────────────────────
 def compute_branching_ratio(counts: np.ndarray):
     """
-    Estimate the branching ratio σ (Wilting & Priesemann 2018).
+    Simple single-lag branching ratio (CASCADE <= 0.9.3; --simple_BR).
 
-    Method: linear regression of E[N(t+1) | N(t)] vs N(t).
+    Method: linear regression of E[N(t+1) | N(t)] vs N(t), one point per
+    distinct N(t), unweighted. This is NOT the Wilting & Priesemann (2018)
+    estimator: under subsampling it is biased toward 0, and it is sensitive to
+    the bin width. Kept only to reproduce published numbers; the default is
+    compute_branching_ratio_mr().
     Slope = branching ratio.  σ≈1 → critical; σ<1 → subcritical; σ>1 → supercritical.
 
     Parameters
@@ -366,6 +370,136 @@ def compute_branching_ratio(counts: np.ndarray):
     BR        = float(np.sum((x - xbar) * (y - ybar)) / denom)
     intercept = float(ybar - BR * xbar)
     return BR, intercept, pts
+
+
+# ── Branching ratio: multi-lag MR estimator (default since 0.9.4) ─────────────
+def _mr_exponential(t, tau, A):
+    return np.abs(A) * np.exp(-t / tau)
+
+
+def _mr_exponential_offset(t, tau, A, O):
+    return np.abs(A) * np.exp(-t / tau) + O
+
+
+# start values, evaluation budget and unweighted least squares match the
+# defaults of the mrestimator toolbox (Spitzner et al. 2021) so both converge
+# to the same optimum
+_MR_STARTS = {
+    _mr_exponential:        [(20, 1), (200, 1), (-20, 1), (-200, 1), (-1, 1)],
+    _mr_exponential_offset: [(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0), (-1, 1, 0)],
+}
+
+
+def _mr_fit(func, t, rk):
+    """Best of several curve_fit starts by residual sum of squares."""
+    import warnings
+    from scipy.optimize import curve_fit
+    best, best_ss = None, np.inf
+    # the negative-τ starts overflow exp() on the way to rejection; that is
+    # expected (mrestimator does the same) and must not spam the terminal
+    with warnings.catch_warnings(), np.errstate(over="ignore", invalid="ignore"):
+        warnings.simplefilter("ignore")
+        for p0 in _MR_STARTS[func]:
+            try:
+                popt, _ = curve_fit(func, t, rk, p0=p0, maxfev=100 * (len(p0) + 1))
+            except Exception:
+                continue
+            ss = float(np.sum((rk - func(t, *popt)) ** 2))
+            if np.isfinite(ss) and ss < best_ss:
+                best, best_ss = popt, ss
+    return best
+
+
+def compute_branching_ratio_mr(counts: np.ndarray, dt: float,
+                               tmax_ms: float = 2000.0) -> dict:
+    """
+    Multi-step regression (MR) estimator of the branching ratio m
+    (Wilting & Priesemann 2018, Nat. Commun. 9:2325).
+
+    Under subsampling the single-lag regression of a(t+1) on a(t) is biased
+    toward 0 by an unknown factor b. MR regresses a(t+k) on a(t) for every lag
+    k = 1 … kmax, giving r_k = b · m^k; fitting that exponential separates b
+    from m. This is the estimator Habibollahi et al. (2023) describe (Eq. 7).
+
+    r_k is the slope of the per-bin regression over the whole recording,
+    cov(a_t, a_t+k) / var(a_t) (mrestimator's trial-separated method for one
+    trial). The fit is r_k = |A| exp(-k·dt/τ), m = exp(-dt/τ), with the start
+    values of mrestimator. m depends on dt; τ (autocorrelation time) does not.
+
+    Checks (mrestimator style, single recording):
+      rk_positive : lag-1 slope r_1 significantly > 0 against the
+                    uncorrelated-activity null (z = r_1·sqrt(T-1), p < 0.05)
+      consistent  : exponential and exponential+offset fits give τ within ±50%
+                    (they disagree under slow drift / non-stationarity)
+      window_ok   : the lag window spans at least 3 τ
+
+    Parameters
+    ----------
+    counts  : 1-D population spike counts per bin (all bins, silence included)
+    dt      : bin width in seconds
+    tmax_ms : longest lag in ms (kmax = round(tmax_ms / dt), at least 10,
+              at most a tenth of the recording — mrestimator's default cap)
+
+    Returns
+    -------
+    dict with m, b, tau_ms, m_offset, tau_offset_ms, kmax, tmax_ms,
+    rk_positive, consistent, window_ok, and rk_df (k, lag_ms, r_k, fits)
+    """
+    from scipy import stats
+    out = dict(m=np.nan, b=np.nan, tau_ms=np.nan, m_offset=np.nan,
+               tau_offset_ms=np.nan, kmax=0, tmax_ms=np.nan, rk_positive=False,
+               consistent=False, window_ok=False,
+               rk_df=pd.DataFrame(columns=["k", "lag_ms", "r_k",
+                                           "fit_exponential", "fit_exp_offset"]))
+    a = np.asarray(counts, dtype=np.float64)
+    dt_ms = float(dt) * 1000.0
+    kmax = min(max(10, int(round(tmax_ms / dt_ms))), a.size // 10)
+    if kmax < 3:
+        return out
+
+    ks = np.arange(1, kmax + 1)
+    rk = np.full(kmax, np.nan)
+    for i, k in enumerate(ks):
+        x, y = a[:-k], a[k:]
+        xc = x - x.mean()
+        vx = np.mean(xc * xc)
+        if vx > 0:
+            rk[i] = np.mean(xc * (y - y.mean())) / vx
+    ok = np.isfinite(rk)
+    if ok.sum() < 3:
+        return out
+    t = ks[ok] * dt_ms
+    r = rk[ok]
+
+    pe = _mr_fit(_mr_exponential, t, r)
+    po = _mr_fit(_mr_exponential_offset, t, r)
+    if pe is not None:
+        tau, A = float(pe[0]), float(pe[1])
+        # r_k = |A| exp(-k dt/τ) = |A| m^k, so b = |A|
+        out.update(m=float(np.exp(-dt_ms / tau)), b=abs(A), tau_ms=tau)
+    if po is not None:
+        out.update(m_offset=float(np.exp(-dt_ms / float(po[0]))),
+                   tau_offset_ms=float(po[0]))
+
+    # Is there measurable propagation at all? For uncorrelated activity the
+    # lag-1 slope has standard error ~ 1/sqrt(T-1); test r_1 one-sided against
+    # that null. (mrestimator's t-test across all r_k is swamped by decayed lags
+    # whenever the window is much longer than τ or τ < dt.)
+    z = rk[0] * np.sqrt(a.size - 1) if np.isfinite(rk[0]) else -np.inf
+    out["rk_positive"] = bool(stats.norm.sf(z) < 0.05)
+    if np.isfinite(out["tau_ms"]) and np.isfinite(out["tau_offset_ms"]) and out["tau_ms"] > 0:
+        out["consistent"] = bool(abs(out["tau_offset_ms"] / out["tau_ms"] - 1.0) <= 0.5)
+    out["window_ok"] = bool(np.isfinite(out["tau_ms"]) and out["tau_ms"] > 0
+                            and kmax * dt_ms >= 3.0 * out["tau_ms"])
+    out["kmax"] = int(kmax)
+    out["tmax_ms"] = float(kmax * dt_ms)
+    lag = ks * dt_ms
+    out["rk_df"] = pd.DataFrame({
+        "k": ks, "lag_ms": lag, "r_k": rk,
+        "fit_exponential": _mr_exponential(lag, *pe) if pe is not None else np.nan,
+        "fit_exp_offset": _mr_exponential_offset(lag, *po) if po is not None else np.nan,
+    })
+    return out
 
 
 # ── Shape collapse ─────────────────────────────────────────────────────────────

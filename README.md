@@ -1,4 +1,4 @@
-# CASCADE v0.9.3
+# CASCADE v0.9.4
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
@@ -48,7 +48,7 @@ cascade --test
 
 ```
 ================================
-  CASCADE v0.9.3 — Self-test
+  CASCADE v0.9.4 — Self-test
 ================================
   1. Synthetic recording generation... PASS
   2. Spike filtering (active-electrode)... PASS
@@ -61,10 +61,11 @@ cascade --test
    9. Synchrony metrics (xcorr, Kreuz, Paiva)... PASS
  10. Power-law normalisation (known exponent)... PASS
  11. Criticality metrics (tau, alpha, DCC, BR, SCE)... PASS
- 12. Functional connectivity... PASS
- 13. Spatial entropy... PASS
+ 12. Branching ratio (MR estimator, subsampled)... PASS
+ 13. Functional connectivity... PASS
+ 14. Spatial entropy... PASS
 
-All 13 tests passed ✓
+All 14 tests passed ✓
 ```
 
 If any test fails, check your environment (missing dependencies, incorrect Python version, etc.).
@@ -189,7 +190,9 @@ mea_out/
 ├── active_area_<well>.tsv             # active electrode fraction per window
 ├── entropy_<well>.tsv                 # spatial entropy per window
 ├── degrees_<well>.tsv                 # node degree per channel
-├── branching_points_<well>.tsv        # N(t) vs N(t+1) pairs for branching ratio fit
+├── branching_mr_<well>.tsv            # MR estimator: r_k per lag with both fits
+├── branching_mr_<well>.png            # r_k vs lag with the fitted exponentials
+├── branching_points_<well>.tsv        # mean N(t+1) per N(t), for the --simple_BR fit
 ├── criticality_report_<well>.txt      # plain-text criticality metrics summary
 └── cascade_run.log                    # command, parameters, and run status
 ```
@@ -273,8 +276,11 @@ Spatial entropy values per time window. Columns record window start, window end,
 **`degrees_<well>.tsv`**
 Node degree for each active channel: the number of other channels with which it shares a correlation above `--conn_thr`. Includes channel identifiers for cross-referencing with the raster and heatmap outputs.
 
+**`branching_mr_<well>.tsv`** / **`branching_mr_<well>.png`**
+The multi-lag (MR) branching ratio of Wilting & Priesemann (2018), the default since v0.9.4: the regression slope r_k of a(t+k) on a(t) for every lag k, with the exponential fit r_k = b·m^k (m = BR) and an exponential+offset fit used as a drift check. Inspect the plot: r_k should decay exponentially to 0.
+
 **`branching_points_<well>.tsv`**
-Population spike count pairs N(t) and N(t+1) for each Δt bin, used as input for the branching ratio linear regression. Included so the BR fit can be reproduced, visualised, or checked independently of the main pipeline.
+Population spike count pairs N(t) and N(t+1) for each Δt bin, used as input for the simple single-lag regression reported with `--simple_BR`. Included so the BR fit can be reproduced, visualised, or checked independently of the main pipeline.
 
 **`criticality_report_<well>.txt`**
 Plain-text summary of all criticality metrics: τ, α, β_pred, β_fit, DCC, branching ratio (BR), BR intercept, shape collapse error (SCE), and the xmin values used in the power-law fits. This is the primary result file for reporting and manual inspection.
@@ -375,6 +381,13 @@ ltpltd_out/
 | `--sc_Dmin` | `4` | Minimum duration (bins) in shape collapse |
 | `--sc_Dmax` | `20` | Maximum duration (bins) in shape collapse |
 
+**Branching ratio**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--simple_BR` | off | Report the simple single-lag branching ratio of v0.8.0–v0.9.3 instead of the MR estimator. Biased toward 0 under subsampling; use **only** to reproduce previously published numbers |
+| `--br_tmax` | `2000` | Longest lag (ms) for the MR estimator. Should span several autocorrelation times; the report warns when it does not |
+
 **Burst detection**
 
 | Flag | Default | Description |
@@ -434,7 +447,7 @@ ltpltd_out/
 | **β_pred** | Predicted scaling exponent | (α − 1) / (τ − 1) |
 | **β_fit** | Fitted scaling exponent | Slope of log(mean size) vs. log(duration), [t_min, t_min+60] |
 | **DCC** | Deviation from Criticality Coefficient | \|β_pred − β_fit\| |
-| **BR** | Branching ratio | E[N(t+1)\|N(t)] slope (linear regression) |
+| **BR** | Branching ratio m | Multi-lag MR estimator: r_k = b·m^k (Wilting & Priesemann 2018). `--simple_BR`: single-lag E[N(t+1)\|N(t)] slope, biased toward 0 under subsampling |
 | **SCE** | Shape Collapse Error | \|β_opt − β_pred\| |
 
 ---

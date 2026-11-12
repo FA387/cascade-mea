@@ -76,8 +76,12 @@ def write_criticality_report(metrics: dict, out_path: str):
     beta_pred   : float – predicted scaling exponent = (alpha-1)/(tau-1)
     beta_fit    : float – empirical scaling exponent from <S>(T) ~ T^beta
     dcc         : float – deviation from criticality = |beta_pred - beta_fit|
-    br          : float – branching ratio (Wilting & Priesemann 2018)
-    br_intercept: float – intercept of the BR linear fit
+    br          : float – reported branching ratio: MR m (default) or the
+                          simple single-lag slope (--simple_BR)
+    br_intercept: float – intercept of the simple single-lag fit
+    br_simple   : float – simple single-lag slope (always computed)
+    br_mr       : dict  – compute_branching_ratio_mr() result
+    simple_br   : bool  – True when --simple_BR chose the simple estimate
     sc_beta     : float – shape-collapse optimal beta
     sce         : float – |sc_beta - beta_pred|
     sc_minerr   : float – minimum shape-collapse variance metric
@@ -125,9 +129,31 @@ def write_criticality_report(metrics: dict, out_path: str):
     lines.append(f"  beta_fit  from <S>(T) ~ T^beta : {metrics.get('beta_fit',  float('nan')):.6f}")
     lines.append(f"  DCC = |beta_pred - beta_fit|   : {metrics.get('dcc',       float('nan')):.6f}")
     lines.append("")
-    lines.append("Branching Ratio  (Wilting & Priesemann 2018)")
-    lines.append(f"  BR (slope)     : {metrics.get('br',           float('nan')):.6f}")
-    lines.append(f"  h  (intercept) : {metrics.get('br_intercept', float('nan')):.6f}")
+    mr = metrics.get("br_mr")
+    nan = float("nan")
+    if metrics.get("simple_br") or mr is None:
+        lines.append("Branching Ratio  (simple single-lag regression, --simple_BR; "
+                     "biased under subsampling)")
+        lines.append(f"  BR (slope)     : {metrics.get('br',           nan):.6f}")
+        lines.append(f"  h  (intercept) : {metrics.get('br_intercept', nan):.6f}")
+        if mr is not None:
+            lines.append(f"  ** MR estimator (default) for comparison: m = {mr.get('m', nan):.6f}"
+                         f"   b = {mr.get('b', nan):.4f}   tau = {mr.get('tau_ms', nan):.1f} ms")
+    else:
+        ok = lambda f: "passed" if f else "FAILED"
+        lines.append("Branching Ratio  (Wilting & Priesemann 2018, multi-lag MR estimator)")
+        lines.append(f"  BR (m)                    : {mr.get('m', nan):.6f}")
+        lines.append(f"  b  (subsampling factor)   : {mr.get('b', nan):.6f}")
+        lines.append(f"  tau (autocorrelation time): {mr.get('tau_ms', nan):.1f} ms")
+        lines.append(f"  lags                      : k = 1 … {mr.get('kmax', 0)}"
+                     f"  ({mr.get('tmax_ms', nan):.0f} ms at dt = {metrics.get('dt', nan)*1000:.2f} ms)")
+        lines.append(f"  check  r_k > 0            : {ok(mr.get('rk_positive'))}")
+        lines.append(f"  check  exp+offset fit     : m = {mr.get('m_offset', nan):.6f}, "
+                     f"tau = {mr.get('tau_offset_ms', nan):.1f} ms  "
+                     f"({'consistent' if mr.get('consistent') else 'DISAGREES — possible drift'})")
+        lines.append(f"  check  window >= 3 tau    : {ok(mr.get('window_ok'))}")
+        lines.append(f"  ** Simple single-lag BR (--simple_BR) for comparison: "
+                     f"{metrics.get('br_simple', nan):.6f}  (h = {metrics.get('br_intercept', nan):.6f})")
     lines.append("")
     lines.append("Shape Collapse  (Sethna 2001 / Friedman 2012)")
     lines.append(f"  beta_opt (best collapse)         : {metrics.get('sc_beta',   float('nan')):.6f}")
