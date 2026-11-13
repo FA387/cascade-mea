@@ -52,6 +52,7 @@ from cascade.loaders.cl_loader        import CLLoader
 from cascade.loaders                  import read_error_message
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
+from cascade.loaders.finalspark_loader import FinalSparkLoader
 from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics
 from cascade.core.bursts        import compute_burst_metrics, compute_active_area
 from cascade.core.avalanche     import infer_dt, compute_avalanches, counts_per_dt
@@ -81,8 +82,10 @@ def get_loader(manufacturer: str):
         return MCSLoader()
     if manufacturer == "axion":
         return AxionLoader()
+    if manufacturer == "finalspark":
+        return FinalSparkLoader()
     raise ValueError(f"Unknown manufacturer '{manufacturer}'. "
-                     f"Supported: 3brain, maxwell, cl, mcs, axion")
+                     f"Supported: 3brain, maxwell, cl, mcs, axion, finalspark")
 
 
 # ── epoch comparison helper ────────────────────────────────────────────────────
@@ -141,9 +144,9 @@ def main():
     g = ap.add_argument_group("1 Setup — input / output")
     g.add_argument("--manufacturer",
                     required=False, default=None,
-                    choices=["3brain", "maxwell", "cl", "mcs", "axion"],
+                    choices=["3brain", "maxwell", "cl", "mcs", "axion", "finalspark"],
                     help="MEA manufacturer (required except with --test). "
-                         "3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv)")
+                         "3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv), finalspark (.hdf5)")
     g.add_argument("--input",
                     default=None,
                     help="Path to the recording file (.bxr, .h5 or .csv). "
@@ -153,7 +156,8 @@ def main():
                     default=None,
                     help="Well or stream name to analyse (e.g. Well_A1 for 3Brain, "
                          "data0000 for Maxwell). Default: first available well; "
-                         "for Axion, all wells merged.")
+                         "for Axion, all wells merged; FinalSpark 0-3 = site "
+                         "of 8 electrodes, default all 32.")
     g.add_argument("--output",
                     default="mea_out",
                     help="Output folder for all figures and data files. "
@@ -432,7 +436,7 @@ def main():
         sys.exit(run_self_test())
 
     if args.manufacturer is None:
-        ap.error("--manufacturer is required. Choose from: 3brain, maxwell, cl, mcs, axion")
+        ap.error("--manufacturer is required. Choose from: 3brain, maxwell, cl, mcs, axion, finalspark")
     if args.pl_exclude and (args.pl_xmin_S is not None or args.pl_xmin_D is not None):
         ap.error("--pl_exclude chooses xmin itself; it cannot be combined with --pl_xmin_S/--pl_xmin_D")
 

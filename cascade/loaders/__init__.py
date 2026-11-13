@@ -4,6 +4,7 @@ from .maxwell_loader   import MaxwellLoader
 from .cl_loader        import CLLoader
 from .mcs_loader       import MCSLoader
 from .axion_loader     import AxionLoader
+from .finalspark_loader import FinalSparkLoader
 
 
 import os as _os
@@ -15,6 +16,7 @@ EXTENSIONS = {
     "cl":      (".h5", ".hdf5"),
     "mcs":     (".h5", ".hdf5"),
     "axion":   (".csv",),
+    "finalspark": (".hdf5", ".h5"),
 }
 
 
@@ -32,6 +34,9 @@ def detect_manufacturer(path: str) -> str:
         return "axion"
     if ext not in (".h5", ".hdf5"):
         return "unknown"
+    from .finalspark_loader import is_finalspark_file
+    if is_finalspark_file(path):
+        return "finalspark"
     try:
         import h5py
         with h5py.File(path, "r") as h5:

@@ -2,6 +2,11 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5+fs] - 2026-11-14 (local build, not released)
+
+### Added
+- `--manufacturer finalspark`: FinalSpark Neuroplatform whole-life exports (`fsNNN_package.hdf5`, or `fsNNN_raw.hdf5` with the package file next to it). Spikes come from the events table; amplitude is the absolute single peak (`max_voltage_uv`), as for Maxwell. Time 0 is the first event. `--well 0`-`3` selects one 8-electrode site; default is all 32.
+
 ## [0.9.5] - 2026-11-12
 
 Interface and documentation release. All TSV outputs are byte-identical to 0.9.4; only header wording in `criticality_report_<well>.txt` changed.

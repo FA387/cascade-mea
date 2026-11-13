@@ -54,6 +54,7 @@ from cascade.loaders.maxwell_loader   import MaxwellLoader
 from cascade.loaders.cl_loader        import CLLoader
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
+from cascade.loaders.finalspark_loader import FinalSparkLoader
 from cascade.loaders                  import read_error_message, EXTENSIONS
 
 
@@ -160,8 +161,10 @@ def _get_loader(manufacturer: str):
         return MCSLoader()
     if manufacturer == "axion":
         return AxionLoader()
+    if manufacturer == "finalspark":
+        return FinalSparkLoader()
     raise ValueError(f"Unknown manufacturer '{manufacturer}'. "
-                     f"Supported: 3brain, maxwell, cl, mcs, axion")
+                     f"Supported: 3brain, maxwell, cl, mcs, axion, finalspark")
 
 
 # ── HDF5 mode (via CASCADE loaders) ────────────────────────────────────────────
@@ -180,6 +183,10 @@ def _scan_hdf5(path: str, manufacturer: str, well: str, ae_per_min: float,
             all_wells = [k for k in h5.keys() if k.startswith("Well_")]
         chosen_well = well or (all_wells[0] if all_wells else None)
         manufacturer_label = "3Brain BrainWave"
+    elif manufacturer == "finalspark":
+        all_wells = FinalSparkLoader.list_wells()
+        chosen_well = well or "all"
+        manufacturer_label = "FinalSpark"
     elif manufacturer == "cl":
         all_wells = ["default"]
         chosen_well = "default"
@@ -393,13 +400,13 @@ def main():
 
     g = ap.add_argument_group("1 Setup — input / output")
     g.add_argument("--manufacturer",
-                    required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion"],
-                    help="MEA manufacturer. 3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv)")
+                    required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion", "finalspark"],
+                    help="MEA manufacturer. 3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv), finalspark (.hdf5)")
     g.add_argument("--input",
                      default=None, metavar="PATH",
                      help="A recording file (.bxr, .h5 or .csv), or a folder: every "
                           "file of the --manufacturer's type in it is scanned "
-                          "(3brain .bxr; maxwell/cl/mcs .h5; axion .csv).")
+                          "(3brain .bxr; maxwell/cl/mcs .h5; axion .csv; finalspark .hdf5).")
     # pre-0.9.5 spelling of a folder --input; hidden, kept so old scripts still run
     g.add_argument("--folder", default=None, help=argparse.SUPPRESS)
     g.add_argument("--well",
