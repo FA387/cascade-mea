@@ -88,6 +88,10 @@ writes into its files.)
 - New sections: *What's new since the article* (near the top), *Citing CASCADE*,
   *Reproducing the published v0.8.0 results* (`--simple_PL --simple_BR`),
   *Differences from the published article*.
+- New subsection *Effect on the published article*: the article reports no τ, α,
+  DCC, BR or SCE values in its text or tables; Table 1 counts are unchanged; the
+  only printed exponents (Supplementary Fig. 1C–D, CL1 game) move τ 1.752 → 1.770,
+  α 1.974 → 1.990. Zenodo links for the source archive and sample data added.
 - The two manufacturer tables are merged into one under *Supported manufacturers*,
   now including the `--manufacturer` value.
 - Logo restored; self-test output, output-file list (`wave_templates_<well>.png`),

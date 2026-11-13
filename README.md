@@ -25,12 +25,14 @@ Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https
 - **Uniform flags** — all three tools use `--input` / `--output`.
 - **Bug fixes** — `--pl_xmin_S` / `--pl_xmin_D` now fix the fit (not only the plot), MCS amplitudes are in µV, and single-channel recordings skip connectivity correctly.
 
-**Two calculations were corrected**, so default numbers differ from the article:
+**Two calculations were corrected**, so a default run can give different criticality values than v0.8.0:
 
 - the **power-law fit** normalisation (τ, α, β_pred, DCC, SCE);
-- the **branching ratio**, now the Wilting & Priesemann (2018) estimator the article cites.
+- the **branching ratio**, now the Wilting & Priesemann (2018) estimator that the article's Methods cite.
 
-To get the article's numbers, add `--simple_PL --simple_BR` — see [Reproducing the published v0.8.0 results](#reproducing-the-published-v080-results) and [Differences from the published article](#differences-from-the-published-article). Full history: [CHANGELOG.md](CHANGELOG.md).
+**The article's conclusions are not affected.** The article reports no τ, α, DCC, BR or SCE values in its text or tables, and Table 1 (active electrodes, spikes, avalanches) comes from steps that have not changed. The only printed exponents are in Supplementary Fig. 1C–D, and those change by about 1% (see [Effect on the published article](#effect-on-the-published-article)).
+
+To get v0.8.0 numbers exactly, add `--simple_PL --simple_BR` — see [Reproducing the published v0.8.0 results](#reproducing-the-published-v080-results). Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -67,6 +69,8 @@ conda env create -f environment.yml
 conda activate cascade-mea
 pip install .
 ```
+
+To try CASCADE without your own data, download the sample recordings used in the article from Zenodo: https://doi.org/10.5281/zenodo.19161615
 
 ### Verify installation
 
@@ -792,7 +796,30 @@ The article (Avila et al. 2026) describes v0.8.0. Since then:
 | **Branching ratio** | Single-lag regression of N(t+1) on N(t), biased toward 0 under subsampling. The article cites Wilting & Priesemann (2018), whose estimator v0.8.0 did not implement | Multi-lag MR estimator of Wilting & Priesemann (2018), validated against their `mrestimator` toolbox, so the software now matches the article's description | `--simple_BR` |
 | **Upper-tail trimming** | None | None; opt-in `--pl_exclude` for comparison with the Habibollahi et al. (2023) pipeline | — |
 
-Two further points on attribution:
+### Effect on the published article
+
+The article's main text and tables report no criticality values (τ, α, β, DCC, BR,
+SCE); it describes the methods and benchmarks performance. Checked item by item:
+
+| Article item | Affected by the corrections? |
+|---|---|
+| Table 1: active electrodes, spikes, avalanches | No. Filtering and avalanche detection are unchanged since v0.8.0 |
+| Table 1: run time, peak memory | Not a result of the corrections; v0.9.5 adds modules (e.g. synchrony), so run time is longer |
+| Fig. 1: raster plots vs proprietary software | No |
+| Methods: "BR … following Wilting and Priesemann (2018)" | v0.8.0 did not implement this estimator; v0.9.4+ does, so the software now matches the text |
+| Supplementary Fig. 1C–D (CL1 game recording, 27,288 avalanches): τ = 1.752, α = 1.974 | Yes, slightly: τ = 1.770, α = 1.990 with the corrected fit (about 1%). With many avalanches the old and corrected fits agree closely (table above) |
+| Supplementary Table S1 (tool comparison) | No |
+
+Two clarifications on the article's wording:
+
+- `cascade-ltpltd` is written in Python and has shipped with CASCADE since v0.8.0 (the
+  article calls it an R module). It classifies each electrode as LTP, LTD or no change
+  from its firing-rate change between a baseline and later recordings (`rates_*.tsv`).
+- `pip install cascade-mea` installs the latest release on PyPI. Check
+  `cascade --version`; if it is older than this README, install from GitHub
+  ([Installation](#installation)).
+
+### Attribution of the reference methods
 
 - `--perc 0.25` is the default of the Habibollahi et al. (2023) reference code
   (`AV_analysis_BurstT`). Their paper reports a threshold of 40% of the median activity.
@@ -887,6 +914,9 @@ If you use CASCADE, please cite the article and state the CASCADE version you us
 > Avila F, Kim J, Park J-C, Kang R, Lee H, Park S-H. CASCADE: criticality avalanche spike cross-platform analysis detection engine, a multi-manufacturer MEA bash analysis pipeline. *Bioinformatics*. 2026;42(8):btag570. https://doi.org/10.1093/bioinformatics/btag570
 
 `cascade --citation` prints this with a BibTeX entry, and GitHub's **Cite this repository** button reads `CITATION.cff`.
+
+- Source code archive (Zenodo): https://doi.org/10.5281/zenodo.20840795
+- Sample recordings used in the article, with v0.8.0 output (Zenodo): https://doi.org/10.5281/zenodo.19161615
 
 ---
 
