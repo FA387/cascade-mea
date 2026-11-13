@@ -16,7 +16,7 @@ Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https
 
 ## What's new since the article
 
-**Added**
+### Added
 
 - [Synchrony metrics](#synchrony-metrics) for all five manufacturers (`--sync_metrics`).
 - `--max_amplitude`: removes artefact channels by spike amplitude. See [Noise filtering](#noise-filtering).
@@ -24,14 +24,20 @@ Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https
 - `--citation` in all three tools; the run log records the CASCADE version.
 - `--input` / `--output` in all three tools; flags grouped by workflow step in `--help`.
 
-**Corrected** (a default run can give different criticality values than v0.8.0)
+### Corrected
+
+A default run can give different criticality values than v0.8.0.
 
 - Power-law fit normalisation: τ, α, β_pred, DCC, SCE.
 - Branching ratio: now the Wilting & Priesemann (2018) estimator cited in the article's Methods.
 
-**Fixed:** `--pl_xmin_S/D` now set the fit, not only the plot; MCS amplitudes are in µV; single-channel recordings skip connectivity.
+### Fixed
 
-The article's conclusions are not affected, since it reports no τ, α, DCC, BR or SCE values in its text or tables. See [Effect on the published article](#effect-on-the-published-article). Full history: [CHANGELOG.md](CHANGELOG.md).
+- `--pl_xmin_S/D` now set the fit, not only the plot.
+- MCS amplitudes are in µV.
+- Single-channel recordings skip connectivity instead of failing.
+
+The article's conclusions are not affected, because it reports no τ, α, DCC, BR or SCE values in its text or tables. See [Effect on the published article](#effect-on-the-published-article). Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -67,7 +73,7 @@ conda activate cascade-mea
 pip install .
 ```
 
-Check it:
+Then run the self-test:
 
 ```bash
 cascade --test       # 14 self-tests on synthetic data; ends with "All 14 tests passed."
@@ -76,7 +82,7 @@ cascade --version
 
 `pip install cascade-mea` installs the latest PyPI release. If `cascade --version` is older than this README, install from GitHub as above.
 
-Sample recordings from the article: https://doi.org/10.5281/zenodo.19161615
+The sample recordings used in the article are on Zenodo: https://doi.org/10.5281/zenodo.19161615
 
 ---
 
@@ -151,7 +157,7 @@ Report the CASCADE version from `cascade_run.log` with your results, since criti
 
 ### cascade-info output
 
-Printed to the terminal. With `--output`, also saved as `[output_dir]/info_summary.tsv`, one row per file.
+`cascade-info` prints its results to the terminal. With `--output`, it also writes `[output_dir]/info_summary.tsv` with one row per file.
 
 ### cascade-ltpltd output
 
@@ -167,7 +173,7 @@ Printed to the terminal. With `--output`, also saved as `[output_dir]/info_summa
 
 ## All flags
 
-Grouped by workflow step, in the same order as `--help`:
+Flags are grouped by workflow step, in the same order as `--help`.
 
 | Step | Decides |
 |---|---|
@@ -363,7 +369,7 @@ Below ~50 avalanches the power-law fit is unreliable. Trust BR only when its thr
 
 ## Noise filtering
 
-Filters remove whole channels, in this order: `--ae`, then `--max_rate` and `--max_rpv`, then `--max_amplitude`.
+Each filter removes whole channels. They run in this order: `--ae`, then `--max_rate` and `--max_rpv`, then `--max_amplitude`.
 
 ```bash
 cascade --manufacturer [manufacturer] --input [recording] --output [output_dir] \
@@ -376,7 +382,7 @@ Add only the filters a first run shows you need, check how many channels each re
 
 ## Synchrony metrics
 
-Spike-timing synchrony from the Axion Neural Metric Tool set, computed for every manufacturer. Unlike Pearson connectivity (1 s bins), it resolves millisecond timing.
+CASCADE computes the synchrony metrics of the Axion Neural Metric Tool for every manufacturer. Pearson connectivity uses 1 s bins; these metrics resolve millisecond timing.
 
 | `--sync_metrics` | Reports |
 |---|---|
@@ -388,8 +394,6 @@ Spike-timing synchrony from the Axion Neural Metric Tool set, computed for every
 | `none` | Skip |
 
 `core` keeps the two metrics that resolved on all five sample recordings and separated them best. `kreuz_metric` separates cultures poorly but is parameter-free, so it suits before/after comparisons within one culture.
-
-Notes:
 
 - Timing flags are absolute ms, never inferred from the sampling rate, so values are comparable across devices.
 - FWHH cannot resolve a peak narrower than `--sync_bin`. Halve the bin until FWHH stops changing, or compare the area metrics instead.
@@ -499,7 +503,11 @@ Cite the article and the CASCADE version you used (`cascade --version`):
 
 ## Funding
 
-Korea Institute of Toxicology (KIT, Project No. KK-2607) and the Korea Ministry of Food and Drug Safety (RS-2024-00331678).
+- Korea Institute of Toxicology (KIT), Project No. KK-2607
+- Korea Ministry of Food and Drug Safety, RS-2024-00331678
+- National Research Foundation of Korea (NRF), funded by the Korea government (MSIT), RS-2026-25514372
+- Research Institute for Convergence of Biomedical Science and Technology, Pusan National University Yangsan Hospital, 30-2026-005
+- National Research Foundation of Korea (NRF), funded by the Korea government (MSIT), RS-2026-25520892
 
 ## Contributing
 

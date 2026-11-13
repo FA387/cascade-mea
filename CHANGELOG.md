@@ -8,8 +8,8 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
 
 ### Added
 - `--citation` in all three tools (text and BibTeX). `CITATION.cff` gains `preferred-citation`; `cascade_run.log` records the version.
-- Clear error for a wrong `--manufacturer`, naming the right device when the file identifies it (`detect_manufacturer`, `read_error_message` in `cascade/loaders/__init__.py`). Replaces the traceback.
-- Warning when only one of `--epochA` / `--epochB` is given (was silently skipped).
+- A wrong `--manufacturer` now prints a one-line error instead of a traceback, and names the right device when the file identifies it (`detect_manufacturer`, `read_error_message` in `cascade/loaders/__init__.py`).
+- Warning when only one of `--epochA` / `--epochB` is given. Previously the comparison was skipped silently.
 - Rian Kang added as author (LICENSE, `CITATION.cff`, `__author__`).
 
 ### Changed
@@ -35,7 +35,7 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
 ## [0.9.4] - 2026-11-12
 
 ### Changed
-- **Branching ratio is now the multi-lag MR estimator** of Wilting & Priesemann (2018). v0.8.0 to 0.9.3 used a single-lag regression, biased toward 0 under subsampling and unstable to dt rounding. Validated against `mrestimator` (r_k to 1e-16, m to 6 decimals); no new dependency. **BR values change**; nothing else does.
+- Branching ratio is now the multi-lag MR estimator of Wilting & Priesemann (2018). v0.8.0 to 0.9.3 used a single-lag regression, which is biased toward 0 under subsampling and shifted when dt was rounded. The new code matches `mrestimator` (r_k to 1e-16, m to 6 decimals) and adds no dependency. **BR values change**; all other outputs are identical.
 
   | Sample | Old BR | MR m | Checks |
   |---|---:|---:|---|
@@ -54,7 +54,7 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
 ## [0.9.3] - 2026-11-12
 
 ### Added
-- `--pl_exclude`: opt-in upper-tail trimming (`EXCLUDE` step of the Habibollahi et al. Python code). With `--simple_PL` it matches their code exactly on all five samples. The trimmed range can shrink to a few values, so the untrimmed fit is always reported. Cannot be combined with `--pl_xmin_S/D`. Default output unchanged.
+- `--pl_exclude`: opt-in upper-tail trimming (`EXCLUDE` step of the Habibollahi et al. Python code). With `--simple_PL` it matches their code exactly on all five samples. The trimmed range can shrink to a few values, so the untrimmed fit is always reported. It cannot be combined with `--pl_xmin_S/D`. Default output is unchanged.
 
 ## [0.9.2] - unreleased
 
@@ -63,9 +63,9 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
   - Default `--sync_metrics core`: `area_xcorr_norm` and `synchrony_index`, the two that resolved on all five samples and separated them best.
   - Flags: `--sync_metrics`, `--sync_window`, `--sync_bin`, `--sync_max_lag`, `--sync_sigma`, `--sync_max_channels`.
   - Outputs: `synchrony_<well>.tsv`, `crosscorrelogram_<well>.png`, `crosscorrelogram_norm_<well>.png`.
-  - Timing in absolute ms, never inferred from sampling rate, so values compare across devices.
-  - Uses PySpike for SPIKE-distance when installed (`.[synchrony]`); otherwise a local port (up to 2.7e-2 off), recorded as `kreuz_backend`.
-  - FWHH flagged when limited by bin or lag window (`fwhh_resolution_limited`).
+  - Timing parameters are absolute ms, never inferred from the sampling rate, so values compare across devices.
+  - SPIKE-distance uses PySpike when it is installed (`.[synchrony]`) and a local port otherwise (up to 2.7e-2 off); `kreuz_backend` records which one ran.
+  - `fwhh_resolution_limited` flags an FWHH limited by the bin or the lag window.
 
 ### Fixed
 - `--pl_xmin_S/D` now fix the fit, not only the plot line. The automatic fit is still reported. Runs that used these flags get different τ/α/DCC/SCE.
@@ -74,7 +74,7 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
 ## [0.9.1] - unreleased
 
 ### Fixed
-- **Power-law normalisation.** `tplfit()` summed over observed avalanche values only (`np.unique`) instead of every integer between the cut-offs, which biased the exponent and the KS xmin search. Inherited from the Habibollahi et al. reference `tplfit.py`; the same package's `plmle.py` uses the full range. **Changes τ, α, β_pred, DCC, SCE.** Bias on synthetic data (true exponent 1.5): 1.295 at 421 avalanches, 1.499 at 27,288; corrected 1.50 at both.
+- Power-law normalisation. `tplfit()` summed over the observed avalanche values (`np.unique`) instead of every integer between the cut-offs, which biased the exponent and the KS xmin search. The code came from the Habibollahi et al. reference `tplfit.py`; `plmle.py` in the same package uses the full range. **τ, α, β_pred, DCC and SCE change.** On synthetic data with a true exponent of 1.5, the old fit gave 1.295 at 421 avalanches and 1.499 at 27,288; the corrected fit gives 1.50 at both.
 
 ### Added
 - `--simple_PL` reproduces the old normalisation byte-for-byte. Self-test covers both paths.
@@ -86,10 +86,10 @@ Interface and documentation release. All TSV outputs are byte-identical to 0.9.4
 - Per-spike amplitudes in all five loaders (`MEARecording.spike_amplitudes`). Maxwell stores a single-peak value; files without amplitudes skip the filter with a warning.
 
 ### Fixed
-- Single-channel recordings now skip connectivity (guard checked DataFrame columns, so it never fired).
+- Single-channel recordings now skip connectivity. The old guard counted DataFrame columns, so it never fired.
 - MCS amplitudes were ADC units, not µV (~16.8× too large); now converted with `ConversionFactor` × 10^`Exponent`.
 - MCS and Axion spike times and amplitudes now stay aligned after sorting.
-- `CITATION.cff` date and missing `conda-recipe/meta.yaml`.
+- `CITATION.cff` release date, and the missing `conda-recipe/meta.yaml`.
 
 ## [0.8.0] - 2026-04-21
 
