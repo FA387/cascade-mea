@@ -6,7 +6,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/c/cascade-mea/cascade_mea-{{ version }}.tar.gz
-  sha256: 3f61edca8cbbf676e24d46014c1e9a4243128c4f36c18a425ca1545c025056cc
+  sha256: f8b1971d54d34fc3dc52a31ae6e1e42fe79aaa255e147568887b56c64d421977
 
 build:
   number: 0
