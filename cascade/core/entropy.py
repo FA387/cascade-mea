@@ -40,8 +40,6 @@ def compute_entropy(spike_times: Dict[int, np.ndarray],
     if not spike_times:
         return pd.DataFrame(columns=cols)
 
-    all_ch  = list(spike_times.keys())
-    n_total = len(all_ch)
     edges   = np.arange(0.0, duration_s + window_s, window_s)
     rows    = []
 

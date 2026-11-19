@@ -15,7 +15,7 @@ Sethna (2001), Friedman et al. (2012) – shape collapse
 import numpy as np
 import pandas as pd
 from scipy.optimize import fmin
-from .avalanche import avalanche_segments, counts_per_dt
+from .avalanche import avalanche_segments
 
 
 # ── Truncated power-law fit (KS-minimising xmin search, reference tplfit) ─────

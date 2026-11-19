@@ -33,12 +33,11 @@ HDF5 structure (MCS HDF5 Protocol v3)
                                 relative to recording start (t0 from ChannelDataTimeStamps)
 """
 
-import re
 import numpy as np
 import h5py
 
 from .base_loader import BaseLoader
-from cascade.utils.common import MEARecording, frames_to_seconds
+from cascade.utils.common import MEARecording
 
 
 class MCSLoader(BaseLoader):

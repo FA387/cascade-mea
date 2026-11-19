@@ -145,27 +145,6 @@ def filter_amplitude_electrodes(spike_times: Dict[int, np.ndarray],
     return filtered, len(removed), removed
 
 
-# ── Spike DataFrame ────────────────────────────────────────────────────────────
-def spikes_to_dataframe(spike_times: Dict[int, np.ndarray]) -> pd.DataFrame:
-    """
-    Flatten the per-channel spike dict into a tidy DataFrame.
-
-    Returns
-    -------
-    DataFrame with columns: time_s (float), ch_idx (int)
-    Sorted by time_s.
-    """
-    if not spike_times:
-        return pd.DataFrame(columns=["time_s", "ch_idx"])
-
-    rows = [(t, ch)
-            for ch, times in spike_times.items()
-            for t in times]
-    df = pd.DataFrame(rows, columns=["time_s", "ch_idx"])
-    df["ch_idx"] = df["ch_idx"].astype(np.int32)
-    return df.sort_values("time_s").reset_index(drop=True)
-
-
 # ── Spike binning (firing rates) ───────────────────────────────────────────────
 def bin_spikes(spike_times: Dict[int, np.ndarray],
                duration_s: float,

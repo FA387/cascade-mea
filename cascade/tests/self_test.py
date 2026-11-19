@@ -118,14 +118,6 @@ def _all_spikes(rec: MEARecording) -> np.ndarray:
 
 
 # ── individual tests ───────────────────────────────────────────────────────────
-def _test_recording(rec: MEARecording):
-    assert rec.n_channels == 20
-    assert rec.duration == 120.0
-    assert len(rec.spike_times) == 20
-    total = sum(len(v) for v in rec.spike_times.values())
-    assert total > 500, f"Too few spikes: {total}"
-
-
 def _test_spike_filtering(rec: MEARecording):
     from cascade.core.spikes import filter_active_electrodes
     active = filter_active_electrodes(rec.spike_times, ae_per_min=5, duration_s=rec.duration)
@@ -454,7 +446,7 @@ def run_self_test() -> int:
     print()
     print(f"{_BOLD}{_CYN}CASCADE v{__version__} — Built-in Self-Test{_RST}")
     print(sep)
-    print(f"  Synthetic recording: 20 ch · 120 s · Poisson + bursts · seed 42")
+    print("  Synthetic recording: 20 ch · 120 s · Poisson + bursts · seed 42")
     print(sep)
 
     passed = 0

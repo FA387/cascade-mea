@@ -49,13 +49,10 @@ if _HERE not in sys.path:
 
 from cascade import __version__
 from cascade.utils.citation import add_citation_argument
-from cascade.loaders.brainwave_loader import BrainwaveLoader
-from cascade.loaders.maxwell_loader   import MaxwellLoader
-from cascade.loaders.cl_loader        import CLLoader
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
 from cascade.loaders.finalspark_loader import FinalSparkLoader
-from cascade.loaders                  import read_error_message, EXTENSIONS
+from cascade.loaders                  import read_error_message, EXTENSIONS, get_loader, LOADERS
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
@@ -149,24 +146,6 @@ def _scan_csv(path: str, ae_per_min: float, sr: float,
                 ae_threshold=ae_per_min)
 
 
-# ── loader factory ──────────────────────────────────────────────────────────────
-def _get_loader(manufacturer: str):
-    if manufacturer == "3brain":
-        return BrainwaveLoader()
-    if manufacturer == "maxwell":
-        return MaxwellLoader()
-    if manufacturer == "cl":
-        return CLLoader()
-    if manufacturer == "mcs":
-        return MCSLoader()
-    if manufacturer == "axion":
-        return AxionLoader()
-    if manufacturer == "finalspark":
-        return FinalSparkLoader()
-    raise ValueError(f"Unknown manufacturer '{manufacturer}'. "
-                     f"Supported: 3brain, maxwell, cl, mcs, axion, finalspark")
-
-
 # ── HDF5 mode (via CASCADE loaders) ────────────────────────────────────────────
 def _scan_hdf5(path: str, manufacturer: str, well: str, ae_per_min: float,
                start_s: float, dur_s: float) -> dict:
@@ -176,7 +155,7 @@ def _scan_hdf5(path: str, manufacturer: str, well: str, ae_per_min: float,
     """
     import h5py
 
-    loader = _get_loader(manufacturer)
+    loader = get_loader(manufacturer)
 
     if manufacturer == "3brain":
         with h5py.File(path, "r") as h5:
@@ -403,7 +382,7 @@ def main():
 
     g = ap.add_argument_group("1 Setup — input / output")
     g.add_argument("--manufacturer",
-                    required=True, choices=["3brain", "maxwell", "cl", "mcs", "axion", "finalspark"],
+                    required=True, choices=list(LOADERS),
                     help="MEA manufacturer. 3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv), finalspark (.hdf5)")
     g.add_argument("--input",
                      default=None, metavar="PATH",

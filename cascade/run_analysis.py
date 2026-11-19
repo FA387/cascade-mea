@@ -41,18 +41,11 @@ import glob
 import os
 import sys
 import numpy as np
-import pandas as pd
 
 # ── imports from this package ──────────────────────────────────────────────────
 from cascade import __version__
 from cascade.utils.citation import add_citation_argument
-from cascade.loaders.brainwave_loader import BrainwaveLoader
-from cascade.loaders.maxwell_loader   import MaxwellLoader
-from cascade.loaders.cl_loader        import CLLoader
-from cascade.loaders                  import read_error_message
-from cascade.loaders.mcs_loader       import MCSLoader
-from cascade.loaders.axion_loader     import AxionLoader
-from cascade.loaders.finalspark_loader import FinalSparkLoader
+from cascade.loaders                  import read_error_message, get_loader, LOADERS
 from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics, blank_after_stims
 from cascade.core.bursts        import compute_burst_metrics, compute_active_area
 from cascade.core.avalanche     import infer_dt, compute_avalanches, counts_per_dt
@@ -68,24 +61,7 @@ from cascade.core.plots         import (plot_raster, plot_rate_heatmap, plot_pop
                                         plot_shape_collapse, plot_entropy_curve, plot_epoch_compare,
                                         plot_cross_correlogram, plot_branching_mr)
 from cascade.utils.common       import say, banner, step, CYAN, GRN, YEL, RED
-from cascade.utils.io           import write_csv, write_tsv, write_criticality_report, write_run_log, _Tee
-
-
-def get_loader(manufacturer: str):
-    if manufacturer == "3brain":
-        return BrainwaveLoader()
-    if manufacturer == "maxwell":
-        return MaxwellLoader()
-    if manufacturer == "cl":
-        return CLLoader()
-    if manufacturer == "mcs":
-        return MCSLoader()
-    if manufacturer == "axion":
-        return AxionLoader()
-    if manufacturer == "finalspark":
-        return FinalSparkLoader()
-    raise ValueError(f"Unknown manufacturer '{manufacturer}'. "
-                     f"Supported: 3brain, maxwell, cl, mcs, axion, finalspark")
+from cascade.utils.io           import write_tsv, write_criticality_report, write_run_log, _Tee
 
 
 # ── epoch comparison helper ────────────────────────────────────────────────────
@@ -144,7 +120,7 @@ def main():
     g = ap.add_argument_group("1 Setup — input / output")
     g.add_argument("--manufacturer",
                     required=False, default=None,
-                    choices=["3brain", "maxwell", "cl", "mcs", "axion", "finalspark"],
+                    choices=list(LOADERS),
                     help="MEA manufacturer (required except with --test). "
                          "3brain (.bxr), maxwell (.h5), cl (.h5), mcs (.h5), axion (.csv), finalspark (.hdf5)")
     g.add_argument("--input",
@@ -445,7 +421,7 @@ def main():
         sys.exit(run_self_test())
 
     if args.manufacturer is None:
-        ap.error("--manufacturer is required. Choose from: 3brain, maxwell, cl, mcs, axion, finalspark")
+        ap.error(f"--manufacturer is required. Choose from: {', '.join(LOADERS)}")
     if args.pl_exclude and (args.pl_xmin_S is not None or args.pl_xmin_D is not None):
         ap.error("--pl_exclude chooses xmin itself; it cannot be combined with --pl_xmin_S/--pl_xmin_D")
 

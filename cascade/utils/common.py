@@ -54,10 +54,6 @@ class MEARecording:
     def n_spikes(self) -> int:
         return int(self.all_spike_times().size)
 
-    def active_channels(self) -> list:
-        """Return only channels that fired at least once."""
-        return [ch for ch, st in self.spike_times.items() if len(st) > 0]
-
 
 # ── Figure saving ──────────────────────────────────────────────────────────────
 def save_fig(fig: plt.Figure, out_png: str, save_svg: bool = False,

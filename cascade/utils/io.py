@@ -6,13 +6,11 @@ The R script for LTP/LTD reads the TSV files produced here.
 Keep column names stable — changing them breaks the R script.
 """
 
-import io
 import os
 import re
 import sys
 import platform
 import datetime
-import numpy as np
 import pandas as pd
 
 from cascade import __version__
@@ -111,7 +109,7 @@ def write_criticality_report(metrics: dict, out_path: str):
                  f"   xmin_D = {metrics.get('xmin_d', 'n/a')}")
     if metrics.get("xmax_s") is not None:
         n_tot = metrics.get("n_total")
-        lines.append(f"  ** UPPER TAIL TRIMMED (--pl_exclude, EXCLUDE from the Habibollahi et al. 2023 reference code)")
+        lines.append("  ** UPPER TAIL TRIMMED (--pl_exclude, EXCLUDE from the Habibollahi et al. 2023 reference code)")
         lines.append(f"     size fit range     : [{metrics.get('xmin_s')}, {metrics['xmax_s']:g}]"
                      f"   {metrics.get('n_fit_s')}/{n_tot} avalanches used")
         lines.append(f"     duration fit range : [{metrics.get('xmin_d')}, {metrics['xmax_d']:g}]"

@@ -4,13 +4,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [0.9.6] - 2026-11-19
 
-Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before.
+Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before. The code cleanup below changes no result: on the six sample recordings, `cascade`, `cascade-info` and `cascade-ltpltd` write the same files with and without it, byte for byte (244 files, PNGs included).
 
 ### Added
 - `--manufacturer finalspark`: FinalSpark Neuroplatform whole-life exports. `--input` is `fsNNN_package.hdf5` (events table: time, electrode, peak voltage). `fsNNN_raw.hdf5` holds only 3 ms snippets of the same spikes and is refused with a message pointing to the package file. `--well 0`-`3` selects one 8-electrode site; default is all 32. Electrode IDs follow FinalSpark's numbering (32 × MEA + 8 × site + n). Amplitude is the absolute single peak (`max_voltage_uv`). Time 0 is the first event.
 - `--stim_blank MS`: removes every spike within MS ms after each stimulation, on all channels, before the other filters. Needs stimulation times in the file (FinalSpark). Default off.
 - `cascade` warns how many spikes fall within 20 ms after a stimulation when stimulation times are present and `--stim_blank` is off. `cascade-info` prints the number of stimulations in the window.
 - Self-tests 15 and 16: stimulation blanking and the FinalSpark loader on a synthetic export (16 in total).
+
+### Changed
+- One loader registry (`LOADERS`, `get_loader` in `cascade/loaders/__init__.py`) replaces the two copies in `run_analysis.py` and `scanner.py`. The `--manufacturer` choices of `cascade` and `cascade-info` come from it.
+- `detect_manufacturer` uses the loaders' own file checks (`CLLoader.is_cl_file`, `MCSLoader.is_mcs_file`) instead of a copy of them.
+
+### Removed
+- Code nothing used: `spikes_to_dataframe`, `MEARecording.active_channels`, an unregistered self-test, 7 unused imports and 1 unused variable.
 
 ## [0.9.5] - 2026-11-12
 

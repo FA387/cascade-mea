@@ -9,6 +9,24 @@ from .finalspark_loader import FinalSparkLoader
 
 import os as _os
 
+# --manufacturer name -> loader class. The single registration point for a new manufacturer.
+LOADERS = {
+    "3brain":     BrainwaveLoader,
+    "maxwell":    MaxwellLoader,
+    "cl":         CLLoader,
+    "mcs":        MCSLoader,
+    "axion":      AxionLoader,
+    "finalspark": FinalSparkLoader,
+}
+
+
+def get_loader(manufacturer: str):
+    if manufacturer not in LOADERS:
+        raise ValueError(f"Unknown manufacturer '{manufacturer}'. "
+                         f"Supported: {', '.join(LOADERS)}")
+    return LOADERS[manufacturer]()
+
+
 # File types each manufacturer writes; .h5 is shared by three devices.
 EXTENSIONS = {
     "3brain":  (".bxr",),
@@ -34,21 +52,19 @@ def detect_manufacturer(path: str) -> str:
         return "axion"
     if ext not in (".h5", ".hdf5"):
         return "unknown"
+    import h5py
+    try:
+        if not h5py.is_hdf5(path):
+            return "unknown"
+    except OSError:  # missing or unreadable file
+        return "unknown"
     from .finalspark_loader import is_finalspark_file
     if is_finalspark_file(path):
         return "finalspark"
-    try:
-        import h5py
-        with h5py.File(path, "r") as h5:
-            sid = h5.attrs.get("system_id", b"")
-            if isinstance(sid, bytes):
-                sid = sid.decode("ascii", errors="replace")
-            if str(sid).upper().startswith("CL1"):
-                return "cl"
-            if "McsHdf5ProtocolType" in h5.attrs:
-                return "mcs"
-    except Exception:
-        return "unknown"
+    if CLLoader.is_cl_file(path):
+        return "cl"
+    if MCSLoader.is_mcs_file(path):
+        return "mcs"
     return "maxwell"
 
 

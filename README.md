@@ -465,7 +465,7 @@ cascade/
 
 1. Add `cascade/loaders/<name>_loader.py` subclassing `BaseLoader`.
 2. Implement `load(path, well=None, start_s=0.0, duration_s=None) -> MEARecording` with spike times in **seconds**.
-3. Register it in `run_analysis.py:get_loader()` and the `--manufacturer` choices.
+3. Register it in `LOADERS` and `EXTENSIONS` in `cascade/loaders/__init__.py`. `cascade` and `cascade-info` take their `--manufacturer` choices from `LOADERS`.
 
 ```python
 from .base_loader import BaseLoader
