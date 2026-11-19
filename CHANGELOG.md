@@ -18,7 +18,6 @@ Adds one manufacturer and one opt-in filter. Nothing changes for the other five 
 - One loader registry (`LOADERS`, `get_loader` in `cascade/loaders/__init__.py`) replaces the two copies in `run_analysis.py` and `scanner.py`. The `--manufacturer` choices of `cascade` and `cascade-info` come from it.
 - `detect_manufacturer` uses the loaders' own file checks (`CLLoader.is_cl_file`, `MCSLoader.is_mcs_file`) instead of a copy of them.
 - `seaborn` is no longer a dependency; no code ever used it.
-- `--simple_PL` and `--simple_BR` no longer print a terminal warning; the criticality report still names the method used.
 - README rewritten as a usage guide with worked examples (multi-well plates, time windows, `--ae`), a FinalSpark acknowledgement, and a logo with a white background for dark mode.
 
 ### Fixed
