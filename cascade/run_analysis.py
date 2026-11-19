@@ -53,7 +53,7 @@ from cascade.loaders                  import read_error_message
 from cascade.loaders.mcs_loader       import MCSLoader
 from cascade.loaders.axion_loader     import AxionLoader
 from cascade.loaders.finalspark_loader import FinalSparkLoader
-from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics
+from cascade.core.spikes        import filter_active_electrodes, filter_noisy_electrodes, filter_amplitude_electrodes, bin_spikes, compute_isi_metrics, blank_after_stims
 from cascade.core.bursts        import compute_burst_metrics, compute_active_area
 from cascade.core.avalanche     import infer_dt, compute_avalanches, counts_per_dt
 from cascade.core.criticality   import (compute_exponents, compute_branching_ratio,
@@ -173,6 +173,15 @@ def main():
                          "Default: full recording length.")
 
     g = ap.add_argument_group("2 Preprocessing — spike filtering")
+    g.add_argument("--stim_blank",
+                    type=float, default=0.0, metavar="MS",
+                    help="Remove every spike within this many milliseconds after "
+                         "each stimulation, on all channels, before any other "
+                         "filter. Removes stimulus artefacts and evoked responses "
+                         "so only spontaneous activity is analysed. Needs "
+                         "stimulation times in the file (supported: FinalSpark). "
+                         "Typical: 5 (artefacts) to 20 (evoked responses). "
+                         "(default: 0 = off)")
     g.add_argument("--ae",
                     type=float, default=0.0,
                     help="Active electrode filter. Keep only channels that fired "
@@ -482,6 +491,27 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
     well_label = rec.metadata.get("well", "well")
+
+    # ── stimulation blanking ───────────────────────────────────────────────────
+    stims = rec.metadata.get("stim_times")
+    n_spk = rec.n_spikes()
+    if stims is not None and len(stims) and n_spk:
+        if args.stim_blank > 0:
+            step("Stimulation blanking", enabled=v)
+            rec.spike_times, rec.spike_amplitudes, n_rm = blank_after_stims(
+                rec.spike_times, stims, args.stim_blank / 1000.0, rec.spike_amplitudes)
+            say(f"Spikes removed within {args.stim_blank:g} ms after {len(stims):,} "
+                f"stimulations: {n_rm:,} of {n_spk:,} ({100 * n_rm / n_spk:.1f} %)",
+                "[DATA]", CYAN, enabled=True)
+        else:
+            _, _, n20 = blank_after_stims(rec.spike_times, stims, 0.020)
+            say(f"{len(stims):,} stimulations in this window: {n20:,} of {n_spk:,} spikes "
+                f"({100 * n20 / n_spk:.1f} %) fall within 20 ms after one and are analysed "
+                f"as spontaneous activity. Add --stim_blank 20 to remove them.",
+                "[WARN]", YEL, enabled=True)
+    elif args.stim_blank > 0:
+        say("--stim_blank ignored: no stimulation times in this file/window "
+            "(supported: FinalSpark).", "[WARN]", YEL, enabled=True)
 
     # ── active-electrode filter ────────────────────────────────────────────────
     step("Active-electrode filter", enabled=v)

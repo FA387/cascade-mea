@@ -2,10 +2,15 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.5+fs] - 2026-11-14 (local build, not released)
+## [0.9.6] - 2026-11-19
+
+Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before.
 
 ### Added
-- `--manufacturer finalspark`: FinalSpark Neuroplatform whole-life exports (`fsNNN_package.hdf5`, or `fsNNN_raw.hdf5` with the package file next to it). Spikes come from the events table; amplitude is the absolute single peak (`max_voltage_uv`), as for Maxwell. Time 0 is the first event. `--well 0`-`3` selects one 8-electrode site; default is all 32.
+- `--manufacturer finalspark`: FinalSpark Neuroplatform whole-life exports. `--input` is `fsNNN_package.hdf5` (events table: time, electrode, peak voltage). `fsNNN_raw.hdf5` holds only 3 ms snippets of the same spikes and is refused with a message pointing to the package file. `--well 0`-`3` selects one 8-electrode site; default is all 32. Electrode IDs follow FinalSpark's numbering (32 × MEA + 8 × site + n). Amplitude is the absolute single peak (`max_voltage_uv`). Time 0 is the first event.
+- `--stim_blank MS`: removes every spike within MS ms after each stimulation, on all channels, before the other filters. Needs stimulation times in the file (FinalSpark). Default off.
+- `cascade` warns how many spikes fall within 20 ms after a stimulation when stimulation times are present and `--stim_blank` is off. `cascade-info` prints the number of stimulations in the window.
+- Self-tests 15 and 16: stimulation blanking and the FinalSpark loader on a synthetic export (16 in total).
 
 ## [0.9.5] - 2026-11-12
 

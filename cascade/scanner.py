@@ -237,6 +237,7 @@ def _scan_hdf5(path: str, manufacturer: str, well: str, ae_per_min: float,
         window_dur=win_dur,
         total_ch=total_ch,
         active_ch=active,
+        stims=len(rec_win.metadata.get("stim_times", ())),
         ae_threshold=ae_per_min,
     )
 
@@ -265,6 +266,8 @@ def _print_result(path: str, info: dict):
     print(f"  Total ch    : {info['total_ch']}")
     print(f"  Active ch   : {info['active_ch']}  (>= {ae:.0f} spikes/min "
           f"in window)")
+    if info.get("stims"):
+        print(f"  Stimulations: {info['stims']:,} in window (see cascade --stim_blank)")
     print()
 
 
@@ -412,8 +415,9 @@ def main():
     g.add_argument("--well",
                      default=None, metavar="NAME",
                      help="Well or stream name (e.g. Well_A1 for 3Brain, "
-                          "data0000 for Maxwell). Default: first available; "
-                          "for Axion, all wells merged.")
+                          "data0000 for Maxwell, 0-3 for a FinalSpark site). "
+                          "Default: first available; for Axion, all wells "
+                          "merged; for FinalSpark, all 32 electrodes.")
     g.add_argument("--sr",
                      type=float, default=None, metavar="HZ",
                      help="Sampling rate in Hz. Only needed when reading a CSV "

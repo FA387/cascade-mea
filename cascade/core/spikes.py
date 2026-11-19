@@ -10,6 +10,28 @@ import pandas as pd
 from typing import Dict
 
 
+# ── Stimulation blanking ───────────────────────────────────────────────────────
+def blank_after_stims(spike_times: Dict[int, np.ndarray], stim_times,
+                      window_s: float, amplitudes=None):
+    """
+    Drop every spike that falls within [stim, stim + window_s) of any
+    stimulation, on all channels (stimulus artefacts and evoked responses
+    reach the whole array). Returns (spike_times, amplitudes, n_removed).
+    """
+    if window_s <= 0 or stim_times is None or len(stim_times) == 0:
+        return spike_times, amplitudes, 0
+    st = np.sort(np.asarray(stim_times, dtype=np.float64))
+    out_t, out_a, removed = {}, ({} if amplitudes is not None else None), 0
+    for ch, t in spike_times.items():
+        i = np.searchsorted(st, t, side="right") - 1
+        hit = (i >= 0) & (t - st[np.maximum(i, 0)] < window_s)
+        removed += int(hit.sum())
+        out_t[ch] = t[~hit]
+        if out_a is not None and ch in amplitudes:
+            out_a[ch] = amplitudes[ch][~hit]
+    return out_t, out_a, removed
+
+
 # ── Active-electrode filter ────────────────────────────────────────────────────
 def filter_active_electrodes(spike_times: Dict[int, np.ndarray],
                               ae_per_min: float,

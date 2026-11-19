@@ -384,6 +384,65 @@ def _test_entropy(rec: MEARecording):
 
 
 # ── orchestrator ───────────────────────────────────────────────────────────────
+def _test_stim_blank():
+    from cascade.core.spikes import blank_after_stims
+    st = {0: np.array([0.0005, 0.004, 0.030, 1.001, 2.5]), 1: np.array([0.019, 0.021])}
+    amp = {0: np.arange(5, dtype=float), 1: np.array([7.0, 8.0])}
+    stims = np.array([1.0, 0.0])                       # unsorted on purpose
+    t, a, n = blank_after_stims(st, stims, 0.020, amp)
+    # removed: ch0 0.0005, 0.004 (stim 0), 1.001 (stim 1); ch1 0.019. 0.021 and 0.030 are past 20 ms
+    assert n == 4, f"expected 4 spikes removed, got {n}"
+    assert t[0].tolist() == [0.030, 2.5] and t[1].tolist() == [0.021]
+    assert a[0].tolist() == [2.0, 4.0] and a[1].tolist() == [8.0]
+    t0, _, n0 = blank_after_stims(st, stims, 0.0)       # 0 ms = off
+    assert n0 == 0 and t0 is st
+
+
+def _test_finalspark_loader():
+    import os, tempfile, h5py
+    from cascade.loaders.finalspark_loader import FinalSparkLoader, is_finalspark_file
+    rng = np.random.default_rng(0)
+    t0 = 1_700_000_000_000_000_000                      # ns, UTC
+    elec = rng.integers(32, 64, 4000)                   # MEA 1 -> electrodes 32-63
+    t_ns = t0 + np.sort(rng.integers(0, 60_000_000_000, 4000))
+    t_ns[0] = t0
+    ev = np.zeros(4000, [("index", "<i8"), ("values_block_0", "<f8", (1,)),
+                         ("time_of_event", "<i8"), ("electrode", "<i8")])
+    ev["index"] = np.arange(4000); ev["time_of_event"] = t_ns; ev["electrode"] = elec
+    ev["values_block_0"][:, 0] = -rng.uniform(20, 80, 4000)
+    stim = np.zeros(3, [("index", "<i8"), ("time_of_stim", "<i8"), ("electrode", "<i8")])
+    stim["time_of_stim"] = t0 + np.array([10, 20, 30]) * 1_000_000_000
+    with tempfile.TemporaryDirectory() as d:
+        pkg = os.path.join(d, "fs999_package.hdf5")
+        with h5py.File(pkg, "w") as h:
+            tb = h.create_dataset("fs999_wholelife_events/table", data=ev)
+            tb.attrs["values_block_0_kind"] = np.bytes_(b"(lp0\nVmax_voltage_uv\np1\na.")
+            h.create_dataset("fs999_wholelife_stimulations/table", data=stim)
+        raw = os.path.join(d, "fs999_raw.hdf5")
+        with h5py.File(raw, "w") as h:
+            h.create_dataset("fs999_wholelife_raw/table", data=np.zeros(1, [("time", "<i8")]))
+        assert is_finalspark_file(pkg) and is_finalspark_file(raw)
+
+        L = FinalSparkLoader()
+        r = L.load(pkg)
+        assert r.channel_ids == list(range(32, 64)), "electrode base for MEA 1 not found"
+        assert sum(len(v) for v in r.spike_times.values()) == 4000
+        assert all(v.min() >= 0 and (np.diff(v) >= 0).all() for v in r.spike_times.values())
+        assert all((a > 0).all() for a in r.spike_amplitudes.values()), "amplitudes not absolute"
+        assert np.allclose(r.metadata["stim_times"], [10, 20, 30])
+        sites = [L.load(pkg, well=str(w)) for w in range(4)]
+        assert sites[2].channel_ids == list(range(48, 56))
+        assert sum(sum(len(v) for v in s.spike_times.values()) for s in sites) == 4000
+        w = L.load(pkg, start_s=15, duration_s=10)    # 15-25 s: stim at 20 s -> 5 s in window
+        assert np.allclose(w.metadata["stim_times"], [5])   # stims 10/20/30 s -> -5 dropped (> 1 s before), 5 kept, 15 outside
+        assert all(v.max() < 10 for v in w.spike_times.values() if len(v))
+        try:
+            L.load(raw)
+            raise AssertionError("raw file was not refused")
+        except ValueError as e:
+            assert "package" in str(e)
+
+
 def run_self_test() -> int:
     """
     Run all self-tests and print a formatted report.
@@ -466,6 +525,12 @@ def run_self_test() -> int:
 
     # 14 — entropy
     run("Spatial entropy", _test_entropy, rec)
+
+    # 15 — stimulation blanking
+    run("Stimulation blanking (--stim_blank)", _test_stim_blank)
+
+    # 16 — FinalSpark loader on a tiny synthetic export
+    run("FinalSpark loader (synthetic export)", _test_finalspark_loader)
 
     print(sep)
     _summary(passed, failed)

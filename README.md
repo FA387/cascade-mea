@@ -1,4 +1,4 @@
-# CASCADE v0.9.5
+# CASCADE v0.9.6
 
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
@@ -6,11 +6,11 @@
 <img width="250" height="250" alt="CASCADE_Logo" src="https://github.com/user-attachments/assets/7a029bf6-93b7-4185-8859-888672b4bb65" />
 </div>
 
-CASCADE analyses multi-electrode array (MEA) spike recordings from five manufacturers with one command. Each file is converted into a common format, so firing rate, network bursts, neuronal avalanches, criticality, functional connectivity, synchrony and spatial entropy are computed the same way for every device. Figures are saved as PNG (300 dpi) and numbers as TSV.
+CASCADE analyses multi-electrode array (MEA) spike recordings from six manufacturers with one command. Each file is converted into a common format, so firing rate, network bursts, neuronal avalanches, criticality, functional connectivity, synchrony and spatial entropy are computed the same way for every device. Figures are saved as PNG (300 dpi) and numbers as TSV.
 
 Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https://doi.org/10.1093/bioinformatics/btag570). See [Citing CASCADE](#citing-cascade).
 
-> **This is v0.9.5.** The article describes v0.8.0. The pipeline is the same, with new features and two corrected calculations. See [What's new since the article](#whats-new-since-the-article).
+> **This is v0.9.6.** The article describes v0.8.0. The pipeline is the same, with new features and two corrected calculations. See [What's new since the article](#whats-new-since-the-article).
 
 ---
 
@@ -18,7 +18,9 @@ Published in *Bioinformatics* (2026), [doi:10.1093/bioinformatics/btag570](https
 
 ### Added
 
-- [Synchrony metrics](#synchrony-metrics) for all five manufacturers (`--sync_metrics`).
+- FinalSpark Neuroplatform support (`--manufacturer finalspark`). See [Supported manufacturers](#supported-manufacturers).
+- `--stim_blank`: removes spikes right after each stimulation (artefacts and evoked responses). See [Noise filtering](#noise-filtering).
+- [Synchrony metrics](#synchrony-metrics) for all manufacturers (`--sync_metrics`).
 - `--max_amplitude`: removes artefact channels by spike amplitude. See [Noise filtering](#noise-filtering).
 - `--pl_exclude`: opt-in upper-tail trimming from the Habibollahi et al. (2023) reference code.
 - `--citation` in all three tools; the run log records the CASCADE version.
@@ -60,6 +62,9 @@ The article's conclusions are not affected, because it reports no τ, α, DCC, B
 | Cortical Labs | `cl` | `.h5` | `/spikes` table (timestamp, channel, waveform) |
 | Multi Channel Systems | `mcs` | `.h5` | MCS HDF5 v3 SegmentStream spike cutouts |
 | Axion BioSystems | `axion` | `.csv` | AxIS spike-list export |
+| FinalSpark Neuroplatform | `finalspark` | `.hdf5` | `fsNNN_package.hdf5`: events table (time, electrode, peak voltage) and stimulation times |
+
+**FinalSpark:** give `--input` the `fsNNN_package.hdf5` file. It holds the spikes. `fsNNN_raw.hdf5` only holds 3 ms voltage snippets around the same spikes, so CASCADE refuses it with a message pointing to the package file. The 4x8 MEA has 4 sites of 8 electrodes, one organoid per site: `--well 0` to `3` selects one site, and no `--well` uses all 32. A whole-life export spans days, so analyse windows with `--start/--dur`, or use `--sync_metrics none` for runs longer than a few hours (synchrony needs about 1.5 GB per hour). The whole fs437 export (5.7 days, 32 electrodes, 2.6 million spikes) with `--sync_metrics none` took 11 min and peaked at 3.6 GB of RAM. FinalSpark stimulates the cultures, and `cascade` reports how many spikes follow a stimulation. See `--stim_blank` in [Noise filtering](#noise-filtering).
 
 ---
 
@@ -76,7 +81,7 @@ pip install .
 Then run the self-test:
 
 ```bash
-cascade --test       # 14 self-tests on synthetic data; ends with "All 14 tests passed."
+cascade --test       # 16 self-tests on synthetic data; ends with "All 16 tests passed."
 cascade --version
 ```
 
@@ -191,9 +196,9 @@ Most runs need only step 1. Add step 2 filters for noisy recordings, change step
 
 | Flag | Default | Description |
 |---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, `axion` |
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, `axion`, `finalspark` |
 | `--input` | auto | Recording file. If omitted, the first `.bxr`/`.h5` in the current folder |
-| `--well` | first | Well or stream. Axion: all wells merged unless given |
+| `--well` | first | Well or stream. Axion: all wells merged unless given. FinalSpark: site `0`–`3`, default all 32 electrodes |
 | `--output` | `mea_out` | Output folder |
 
 #### 2. Preprocessing
@@ -202,6 +207,7 @@ Most runs need only step 1. Add step 2 filters for noisy recordings, change step
 |---|---|---|
 | `--start` | `0` | Window start (s) |
 | `--dur` | full | Window duration (s) |
+| `--stim_blank` | off | Remove spikes within N ms after each stimulation, on all channels, before the other filters (try `20`). Needs stimulation times: FinalSpark |
 | `--ae` | off | Keep channels with ≥ N spikes/min |
 | `--max_rate` | off | Remove channels above N spikes/min (try `1000`) |
 | `--max_rpv` | off | Remove channels with > N % of ISIs < 2 ms (try `1.0`) |
@@ -292,7 +298,7 @@ Most runs need only step 1. Add step 2 filters for noisy recordings, change step
 | `--help` | Show all flags |
 | `--version` | Print the version |
 | `--citation` | Print the citation (text and BibTeX) |
-| `--test` | Run the 14 self-tests |
+| `--test` | Run the 16 self-tests |
 
 ### cascade-info
 
@@ -300,9 +306,9 @@ Most runs need only step 1. Add step 2 filters for noisy recordings, change step
 
 | Flag | Default | Description |
 |---|---|---|
-| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, `axion` |
+| `--manufacturer` | required | `3brain`, `maxwell`, `cl`, `mcs`, `axion`, `finalspark` |
 | `--input` | required | Recording file, or a folder (scans that manufacturer's file type) |
-| `--well` | first | Well or stream. Axion: all wells merged unless given |
+| `--well` | first | Well or stream. Axion: all wells merged unless given. FinalSpark: site `0`–`3`, default all 32 electrodes |
 | `--sr` | none | Sampling rate (Hz), only for a plain CSV with frame numbers |
 | `--output` | off | Folder for `info_summary.tsv` |
 
@@ -371,6 +377,8 @@ Below ~50 avalanches the power-law fit is unreliable. Trust BR only when its thr
 
 Each filter removes whole channels. They run in this order: `--ae`, then `--max_rate` and `--max_rpv`, then `--max_amplitude`.
 
+**Stimulation.** If the file records stimulation times (FinalSpark), `cascade` reports how many spikes fall within 20 ms after a stimulation. Those spikes are stimulus artefacts or evoked responses, not spontaneous activity, and they can inflate avalanches. `--stim_blank N` removes every spike within N ms after each stimulation, on all channels, before the channel filters: `5` removes mainly artefacts, `20` also removes most evoked responses. In the fs437 export (802,657 stimulations), 20 % of all spikes fell within 20 ms after one, compared with 0.6 % expected by chance. `cascade-info` prints the number of stimulations in the window.
+
 ```bash
 cascade --manufacturer [manufacturer] --input [recording] --output [output_dir] \
         --ae 5 --max_rate 1000 --max_rpv 1.0 --max_amplitude 200 --verbose
@@ -404,7 +412,7 @@ CASCADE computes the synchrony metrics of the Axion Neural Metric Tool for every
 
 ## Differences from the published article
 
-| | v0.8.0 (article) | v0.9.5 default | Old behaviour |
+| | v0.8.0 (article) | v0.9.6 default | Old behaviour |
 |---|---|---|---|
 | **Power-law normalisation** (τ, α, β_pred, DCC, SCE) | Sum over observed avalanche values only; biased below ~1,000 avalanches | Sum over every integer between the cut-offs (Clauset et al. 2009) | `--simple_PL` |
 | **Branching ratio** | Single-lag regression, biased toward 0 under subsampling | Multi-lag MR estimator (Wilting & Priesemann 2018), validated against `mrestimator` | `--simple_BR` |
@@ -425,7 +433,7 @@ Both flags print a warning. Use them only to regenerate old numbers.
 | Article item | Affected? |
 |---|---|
 | Table 1: active electrodes, spikes, avalanches | No. Filtering and avalanche detection are unchanged |
-| Table 1: run time, peak memory | Longer in v0.9.5 because of new modules, not because of the corrections |
+| Table 1: run time, peak memory | Longer in v0.9.5 and later because of new modules, not because of the corrections |
 | Fig. 1: rasters vs proprietary software | No |
 | Methods: BR "following Wilting and Priesemann (2018)" | v0.9.4+ implements this estimator, so the software now matches the text |
 | Supplementary Fig. 1C–D (CL1 game, 27,288 avalanches) | τ 1.752 → 1.770, α 1.974 → 1.990 (about 1%) |
@@ -450,7 +458,7 @@ cascade/
 ├── loaders/                one file per manufacturer → MEARecording
 ├── core/                   spikes, bursts, avalanche, criticality, connectivity, synchrony, entropy, plots
 ├── utils/                  MEARecording, writers, run log, citation, inspect_file
-└── tests/self_test.py      the 14 checks run by cascade --test
+└── tests/self_test.py      the 16 checks run by cascade --test
 ```
 
 ## Adding a new manufacturer

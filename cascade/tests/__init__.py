@@ -1,1 +1,1 @@
-"""CASCADE tests - v0.9.5"""
+"""CASCADE tests - v0.9.6"""
