@@ -723,10 +723,6 @@ def main():
     sizes     = av_df["avalanche_size"].to_numpy() if not av_df.empty else np.array([])
     durations = av_df["duration_bins"].to_numpy()  if not av_df.empty else np.array([])
 
-    if args.simple_PL:
-        say("--simple_PL: using the biased pre-0.9.1 normalisation. "
-            "Valid only for reproducing previously published numbers.",
-            "[WARN]", YEL, enabled=True)
     exp_metrics = compute_exponents(sizes, durations,
                                     burst_min=args.burst_min,
                                     t_min=args.t_min,
@@ -796,11 +792,7 @@ def main():
     plot_branching_mr(mr, f"{args.output}/branching_mr_{well_label}.png",
                       well_label, svg, jpg)
     br = br_simple if args.simple_BR else mr["m"]
-    if args.simple_BR:
-        say("--simple_BR: reporting the single-lag branching ratio (biased under "
-            "subsampling). Valid only for reproducing previously published numbers.",
-            "[WARN]", YEL, enabled=True)
-    else:
+    if not args.simple_BR:
         if not mr["rk_positive"]:
             say("MR branching ratio: r_k are not significantly > 0 — no measurable "
                 "propagation, m is not meaningful.", "[WARN]", YEL, enabled=True)
