@@ -4,7 +4,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [S
 
 ## [0.9.6] - 2026-11-19
 
-Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before. The code cleanup below changes no result: on the six sample recordings, `cascade`, `cascade-info` and `cascade-ltpltd` write the same files with and without it, byte for byte (244 files, PNGs included).
+Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before. The code cleanup and the raster fixes below change no number: on the six sample recordings and a run of every flag, all tables, reports and other plots are byte-identical to before; only the two raster images change.
 
 ### Added
 - `--manufacturer finalspark`: FinalSpark Neuroplatform whole-life exports. `--input` is `fsNNN_package.hdf5` (events table: time, electrode, peak voltage). `fsNNN_raw.hdf5` holds only 3 ms snippets of the same spikes and is refused with a message pointing to the package file. `--well 0`-`3` selects one 8-electrode site; default is all 32. Electrode IDs follow FinalSpark's numbering (32 × MEA + 8 × site + n). Amplitude is the absolute single peak (`max_voltage_uv`). Time 0 is the first event.
@@ -15,6 +15,10 @@ Adds one manufacturer and one opt-in filter. Nothing changes for the other five 
 ### Changed
 - One loader registry (`LOADERS`, `get_loader` in `cascade/loaders/__init__.py`) replaces the two copies in `run_analysis.py` and `scanner.py`. The `--manufacturer` choices of `cascade` and `cascade-info` come from it.
 - `detect_manufacturer` uses the loaders' own file checks (`CLLoader.is_cl_file`, `MCSLoader.is_mcs_file`) instead of a copy of them.
+
+### Fixed
+- `raster_max_<well>.png` was empty for a FinalSpark site other than `--well 0`: the y-axis stopped at the number of electrodes (8) while the IDs are 8-31. The axis now reaches the highest electrode ID.
+- `raster_active_<well>.png` labels its rows with the real electrode IDs instead of 0 … N−1.
 
 ### Removed
 - Code nothing used: `spikes_to_dataframe`, `MEARecording.active_channels`, an unregistered self-test, 7 unused imports and 1 unused variable.

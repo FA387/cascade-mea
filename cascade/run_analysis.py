@@ -559,7 +559,8 @@ def main():
     _st_active  = {_ch_seq_map[ch]: times for ch, times in spike_times.items()}
     plot_raster(_st_active,
                 f"{args.output}/raster_active_{well_label}.png",
-                f"Spike raster (active) — {well_label}", svg, jpg)
+                f"Spike raster (active) — {well_label}", svg, jpg,
+                labels=_sorted_chs)
 
     # ── firing rates ──────────────────────────────────────────────────────────
     rate_df = bin_spikes(spike_times, rec.duration, args.bin)

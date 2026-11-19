@@ -13,6 +13,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")   # headless — no display required
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator, FuncFormatter
 from typing import Dict
 
 from cascade.utils.common import save_fig
@@ -34,17 +35,23 @@ matplotlib.rcParams.update({
 # ── Raster plot ────────────────────────────────────────────────────────────────
 def plot_raster(spike_times: Dict[int, np.ndarray],
                 out: str, title: str, save_svg: bool = False, save_jpg: bool = False,
-                n_channels: int = None):
+                n_channels: int = None, labels: list = None):
+    """labels: real electrode IDs when the rows are numbered 0..k-1 (active raster)."""
     fig, ax = plt.subplots(figsize=(8, 5))
     if not spike_times:
         ax.text(0.5, 0.5, "No spikes", ha="center", va="center")
     else:
         for ch, times in spike_times.items():
             ax.scatter(times, np.full(len(times), ch), s=1, c="k", linewidths=0)
-        if n_channels is not None:
-            ax.set_ylim(-1, n_channels)
-        else:
-            ax.set_ylim(-1, max(spike_times.keys()) + 1)
+        # IDs can start above 0 (a FinalSpark site is 16-23), so the axis must reach the
+        # highest ID; string IDs (Axion) are categories and only use n_channels.
+        numeric = isinstance(next(iter(spike_times)), (int, np.integer))
+        top = max(spike_times) + 1 if numeric else 0
+        ax.set_ylim(-1, max(n_channels or 0, top))
+        if labels is not None:
+            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+            ax.yaxis.set_major_formatter(FuncFormatter(
+                lambda y, _: str(labels[int(y)]) if y == int(y) and 0 <= y < len(labels) else ""))
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Electrode")
     ax.set_title(title)
