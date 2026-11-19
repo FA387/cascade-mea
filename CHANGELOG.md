@@ -2,7 +2,9 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.6] - 2026-11-19
+## [0.9.6] - 2026-11-20
+
+First public release since 0.8.0: it also contains every change of 0.9.0–0.9.5 listed below, which were not released on PyPI or conda.
 
 Adds one manufacturer and one opt-in filter. Nothing changes for the other five manufacturers: the new code runs only when a file provides stimulation times (FinalSpark), and with `--stim_blank` off a FinalSpark run gives the same TSV outputs as before. The code cleanup and the raster fixes below change no number: on the six sample recordings and a run of every flag, all tables, reports and other plots are byte-identical to before; only the two raster images change.
 
@@ -15,6 +17,8 @@ Adds one manufacturer and one opt-in filter. Nothing changes for the other five 
 ### Changed
 - One loader registry (`LOADERS`, `get_loader` in `cascade/loaders/__init__.py`) replaces the two copies in `run_analysis.py` and `scanner.py`. The `--manufacturer` choices of `cascade` and `cascade-info` come from it.
 - `detect_manufacturer` uses the loaders' own file checks (`CLLoader.is_cl_file`, `MCSLoader.is_mcs_file`) instead of a copy of them.
+- `--simple_PL` and `--simple_BR` no longer print a terminal warning; the criticality report still names the method used.
+- README rewritten as a usage guide with worked examples (multi-well plates, time windows, `--ae`), a FinalSpark acknowledgement, and a logo with a white background for dark mode.
 
 ### Fixed
 - `raster_max_<well>.png` was empty for a FinalSpark site other than `--well 0`: the y-axis stopped at the number of electrodes (8) while the IDs are 8-31. The axis now reaches the highest electrode ID.

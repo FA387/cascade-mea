@@ -3,7 +3,7 @@
 **Criticality Avalanche Spike Cross-platform Analysis Detection Engine**
 
 <div align="center">
-<img width="250" height="250" alt="CASCADE_Logo" src="https://github.com/user-attachments/assets/7a029bf6-93b7-4185-8859-888672b4bb65" />
+<img width="250" height="250" alt="CASCADE_Logo" src="https://raw.githubusercontent.com/FA387/cascade-mea/main/docs/CASCADE_logo.png" />
 </div>
 
 CASCADE analyses multi-electrode array (MEA) spike recordings from six manufacturers with one command. Each file is converted into a common format, so firing rate, network bursts, neuronal avalanches, criticality, functional connectivity, synchrony and spatial entropy are computed the same way for every device. Figures are saved as PNG (300 dpi) and numbers as TSV.
