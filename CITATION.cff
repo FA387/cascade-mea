@@ -83,7 +83,7 @@ preferred-citation:
 abstract: >
   CASCADE is a modular Python pipeline for analysing multi-electrode array (MEA)
   recordings from multiple manufacturers (3Brain, Maxwell Biosystems, Multi Channel
-  Systems, Cortical Labs CL1, Axion BioSystems). It computes neuronal avalanches,
+  Systems, Cortical Labs CL1, Axion BioSystems, FinalSpark Neuroplatform). It computes neuronal avalanches,
   criticality metrics (tau, alpha, DCC, branching ratio, shape collapse), functional
   connectivity, network bursts, and spatial entropy, producing publication-ready
   figures and machine-readable outputs.
