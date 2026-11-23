@@ -30,6 +30,7 @@ See [Citing CASCADE](#citing-cascade).
 - [Noise filtering](#noise-filtering)
 - [Synchrony metrics](#synchrony-metrics)
 - [Differences from the published article](#differences-from-the-published-article)
+- [AI assistant skill](#ai-assistant-skill)
 - [Project structure](#project-structure)
 - [Adding a new manufacturer](#adding-a-new-manufacturer)
 - [What's new since the article](#whats-new-since-the-article)
@@ -341,10 +342,10 @@ A higher `--ae` keeps only electrodes with many spikes, which removes silent and
 │
 ├── rates_<well>.tsv                  per-channel firing rate per --bin (input for cascade-ltpltd)
 ├── isi_metrics_<well>.tsv            per-channel ISI stats and refractory violations
-├── bursts_<well>.tsv                 network bursts: start, end, duration, spikes
+├── bursts_<well>.tsv                 network bursts: start, end, duration
 ├── avalanches_<well>.tsv             avalanches used for all criticality metrics
 ├── branching_mr_<well>.tsv           MR estimator: r_k per lag and both fits
-├── branching_points_<well>.tsv       N(t), N(t+1) pairs for --simple_BR
+├── branching_points_<well>.tsv       mean N(t+1) per N(t), for --simple_BR
 ├── corr_<well>.tsv                   Pearson correlation matrix (active channels)
 ├── degrees_<well>.tsv                connections per channel above --conn_thr
 ├── synchrony_<well>.tsv              synchrony metrics and the parameters used
@@ -642,6 +643,10 @@ cascade --manufacturer [manufacturer] --input [MEA_recording] --ae 5 --perc 0.25
 The two flags restore the v0.8.0 calculations, so the article's numbers can be regenerated exactly. For new analyses, use the defaults.
 
 ---
+
+## AI assistant skill
+
+The CASCADE skill teaches an AI assistant (Claude Code, Cursor, OpenAI Codex or Google Antigravity) to run CASCADE, choose filters and explain the results. It has its own repository, where you can install it and suggest changes: [FA387/cascade-mea-skill](https://github.com/FA387/cascade-mea-skill).
 
 ## Project structure
 

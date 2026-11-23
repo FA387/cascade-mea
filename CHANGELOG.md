@@ -2,6 +2,14 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- README links the CASCADE agent skill for Claude Code, Cursor, OpenAI Codex and Google Antigravity, kept in its own repository (FA387/cascade-mea-skill). No code changes.
+
+### Fixed
+- README output list: `bursts_<well>.tsv` has no spike-count column; `branching_points_<well>.tsv` holds the mean N(t+1) per N(t).
+
 ## [0.9.6] - 2026-11-20
 
 First public release since 0.8.0: it also contains every change of 0.9.0–0.9.5 listed below, which were not released on PyPI or conda.
